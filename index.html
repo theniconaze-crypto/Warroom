@@ -505,27 +505,30 @@
           </div>
           <p class="text-[11px] font-mono text-slate-500" x-text="usersStatus"></p>
           <div class="divide-y divide-void-700">
-            <div class="flex items-center justify-between py-2 text-xs font-mono">
-              <span class="text-slate-300">admin <span class="text-neon-cyan">· ADMIN (intégré)</span></span>
+            <div class="py-2.5 text-xs font-mono flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+              <span class="text-slate-200 font-semibold">admin <span class="text-neon-cyan font-normal">· ADMIN (intégré)</span></span>
               <span class="text-[11px] text-slate-500">analyse : toujours autorisée</span>
             </div>
             <template x-for="u in users" :key="u.username">
-              <div class="flex items-center justify-between gap-2 py-2 text-xs font-mono">
-                <span class="text-slate-300 flex items-center gap-2 min-w-0">
-                  <span class="flex items-center gap-1.5 shrink-0 text-[10px] text-slate-500 w-24" :title="lastLoginInfo(u.lastLoginAt).title">
+              <div class="py-2.5 text-xs font-mono space-y-2">
+                <div class="flex items-center justify-between gap-3">
+                  <span class="text-slate-100 font-semibold break-all min-w-0">
+                    <span x-text="u.username"></span>
+                    <span class="text-neon-cyan font-normal" x-show="u.role === 'admin'">· ADMIN</span>
+                  </span>
+                  <span class="flex items-center gap-1.5 shrink-0 text-[11px] text-slate-400" :title="lastLoginInfo(u.lastLoginAt).title">
                     <span class="inline-block w-2 h-2 rounded-full" :class="lastLoginInfo(u.lastLoginAt).dot"></span>
                     <span x-text="lastLoginInfo(u.lastLoginAt).label"></span>
                   </span>
-                  <span class="truncate" x-text="u.username"></span> <span class="text-neon-cyan" x-show="u.role === 'admin'">· ADMIN</span>
-                </span>
-                <div class="flex gap-2">
-                  <button x-show="u.role !== 'admin'" @click="toggleCanAnalyze(u)" class="px-2 py-1 rounded border transition"
+                </div>
+                <div class="flex flex-wrap gap-2">
+                  <button x-show="u.role !== 'admin'" @click="toggleCanAnalyze(u)" class="px-2.5 py-1 rounded border transition whitespace-nowrap"
                     :class="u.canAnalyze ? 'border-neon-green/50 text-neon-green hover:bg-neon-green/10' : 'border-neon-red/50 text-neon-red hover:bg-neon-red/10'"
                     :title="u.canAnalyze ? 'Peut générer des analyses — cliquer pour retirer' : 'Ne peut pas générer d\'analyses — cliquer pour autoriser'"
                     x-text="u.canAnalyze ? 'Analyse : ON' : 'Analyse : OFF'"></button>
-                  <button @click="resetUserPwd(u)" class="px-2 py-1 rounded border border-void-700 text-slate-400 hover:border-neon-amber/50 hover:text-neon-amber">Mot de passe</button>
-                  <button @click="toggleRole(u)" class="px-2 py-1 rounded border border-void-700 text-slate-400 hover:border-neon-cyan/50 hover:text-neon-cyan" x-text="u.role === 'admin' ? 'Rétrograder' : 'Promouvoir'"></button>
-                  <button @click="deleteUser(u)" class="px-2 py-1 rounded border border-void-700 text-slate-400 hover:border-neon-red/50 hover:text-neon-red">Supprimer</button>
+                  <button @click="resetUserPwd(u)" class="px-2.5 py-1 rounded border border-void-700 text-slate-400 hover:border-neon-amber/50 hover:text-neon-amber whitespace-nowrap">Mot de passe</button>
+                  <button @click="toggleRole(u)" class="px-2.5 py-1 rounded border border-void-700 text-slate-400 hover:border-neon-cyan/50 hover:text-neon-cyan whitespace-nowrap" x-text="u.role === 'admin' ? 'Rétrograder' : 'Promouvoir'"></button>
+                  <button @click="deleteUser(u)" class="px-2.5 py-1 rounded border border-void-700 text-slate-400 hover:border-neon-red/50 hover:text-neon-red whitespace-nowrap">Supprimer</button>
                 </div>
               </div>
             </template>
