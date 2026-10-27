@@ -124,7 +124,7 @@
 
       <div class="flex flex-wrap items-center gap-2">
         <label class="text-xs text-slate-400 font-mono" for="factionSelect">Faction</label>
-        <select id="factionSelect" x-model="forcedFaction" @change="onFactionChange()"
+        <select id="factionSelect" x-model="forcedFaction" @change="onFactionChange()" :disabled="!analysisEnabled"
           class="bg-void-800 border border-void-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 focus:border-neon-green/60 max-w-full">
           <option value="">Auto-détection</option>
           <template x-for="f in factionOptions()" :key="f"><option :value="f" x-text="f"></option></template>
@@ -133,7 +133,7 @@
       </div>
 
       <div class="flex flex-wrap items-center gap-3">
-        <button @click="analyze()" :disabled="loading"
+        <button @click="analyze()" :disabled="loading || !analysisEnabled"
           class="font-orbitron text-sm tracking-wide px-5 py-3 rounded-lg bg-neon-green/10 border border-neon-green text-neon-green hover:bg-neon-green/20 transition disabled:opacity-40 shadow-glowGreen">
           <span x-show="!loading">▶ LANCER L'ANALYSE</span>
           <span x-show="loading">ANALYSE...</span>
@@ -144,6 +144,9 @@
           class="font-mono text-xs px-4 py-3 rounded-lg border border-neon-cyan/50 text-neon-cyan hover:bg-neon-cyan/10 transition disabled:opacity-40 ml-auto">
           <span x-show="!exporting">⬇ Export PDF</span><span x-show="exporting">Génération...</span>
         </button>
+      </div>
+      <div x-show="!analysisEnabled" class="bg-neon-amber/10 border border-neon-amber/40 text-neon-amber text-xs rounded-lg p-3 font-mono">
+        ⏸ La génération d'analyse est désactivée par un administrateur. L'historique reste accessible.
       </div>
       <div x-show="error" x-transition class="bg-neon-red/10 border border-neon-red/40 text-neon-red text-xs rounded-lg p-3 font-mono" x-text="error"></div>
     </section>
@@ -487,7 +490,21 @@
     <!-- Contenu (rendu uniquement une fois déverrouillé) -->
     <template x-if="settingsUnlocked">
       <div class="p-5 space-y-4">
-        <h2 class="font-orbitron text-xs tracking-widest text-neon-cyan">COMPTES UTILISATEURS</h2>
+        <h2 class="font-orbitron text-xs tracking-widest text-neon-cyan">FONCTIONNALITÉS</h2>
+        <div class="bg-void-800 border border-void-700 rounded-lg p-3 space-y-2">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <div class="text-xs font-mono text-slate-200">Génération d'analyse</div>
+              <div class="text-[11px] font-mono text-slate-500">Désactivée : plus personne ne peut lancer d'analyse. L'historique reste consultable.</div>
+            </div>
+            <button type="button" role="switch" :aria-checked="analysisEnabled" @click="setAnalysisEnabled(!analysisEnabled)"
+              class="shrink-0 text-xs font-mono px-3 py-1.5 rounded-lg border transition"
+              :class="analysisEnabled ? 'border-neon-green/60 text-neon-green bg-neon-green/10' : 'border-neon-red/50 text-neon-red bg-neon-red/10'"
+              x-text="analysisEnabled ? '● ACTIVÉE' : '○ DÉSACTIVÉE'"></button>
+          </div>
+          <p class="text-[11px] font-mono text-slate-500" x-text="featureStatus"></p>
+        </div>
+        <h2 class="font-orbitron text-xs tracking-widest text-neon-cyan pt-2">COMPTES UTILISATEURS</h2>
         <div class="bg-void-800 border border-void-700 rounded-lg p-3 space-y-3">
           <div class="flex flex-wrap gap-2">
             <input x-model="newUser" placeholder="Identifiant" class="flex-1 min-w-[8rem] bg-void-900 border border-void-700 rounded-lg px-3 py-1.5 text-xs font-mono text-slate-200">
@@ -1365,6 +1382,8 @@ function warRoomApp() {
   return {
     gameSystem: '40k',
     forcedFaction: '',
+    analysisEnabled: true,
+    featureStatus: '',
     currentHistoryId: null,
     rawList: '',
     loading: false,
@@ -1498,6 +1517,8 @@ function warRoomApp() {
     init() {
       this.gameSystem = localStorage.getItem('warroom_game') || '40k';
       this.dataPackRaw = localStorage.getItem('warroom_datapack') || '';
+      this.analysisEnabled = localStorage.getItem('warroom_analysis_enabled') !== '0';
+      this.watchFeatureFlags();
       this.loadHistory();
       this.startCloudSync();
       this.aosPackRaw = localStorage.getItem('warroom_aos_pack') || '';
@@ -1506,6 +1527,32 @@ function warRoomApp() {
       this.$watch('gameSystem', v => localStorage.setItem('warroom_game', v));
       this.restoreSession();
       this.pullCloudData();
+    },
+
+    // ---------- Activation de la fonction d'analyse (réglage admin, partagé via Firestore) ----------
+    watchFeatureFlags() {
+      try {
+        const col = CLOUDDATA.col(); if (!col) return;
+        col.doc('settings').onSnapshot(snap => {
+          if (!snap.exists) return;
+          const v = snap.data().analysisEnabled !== false;
+          this.analysisEnabled = v;
+          localStorage.setItem('warroom_analysis_enabled', v ? '1' : '0');
+        }, err => console.warn('Firestore réglages :', err));
+      } catch (e) { console.warn(e); }
+    },
+    async setAnalysisEnabled(v) {
+      if (!this.isAdmin()) return;
+      this.analysisEnabled = !!v;
+      localStorage.setItem('warroom_analysis_enabled', v ? '1' : '0');
+      this.featureStatus = '';
+      try {
+        const col = CLOUDDATA.col();
+        if (col) {
+          await col.doc('settings').set({ analysisEnabled: !!v, updatedAt: new Date().toISOString(), updatedBy: this.user ? this.user.username : '' }, { merge: true });
+          this.featureStatus = '☁ synchronisé pour tous les utilisateurs';
+        } else this.featureStatus = 'Enregistré sur ce poste uniquement (Firestore indisponible)';
+      } catch (e) { console.warn(e); this.featureStatus = '⚠ Envoi Firestore échoué : ' + (e.message || e); }
     },
 
     // ---------- Réglages protégés ----------
@@ -1674,6 +1721,7 @@ function warRoomApp() {
     // ---------- Moteur d'analyse ----------
     analyze(opts) {
       const updateId = (opts && typeof opts === 'object' && opts.updateId) || null;
+      if (!this.analysisEnabled) { this.error = "La génération d'analyse est désactivée par un administrateur."; return; }
       this.error = '';
       this.report = null;
       if (!this.rawList.trim()) { this.error = "Veuillez coller une liste d'armée."; return; }
