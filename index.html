@@ -100,13 +100,13 @@
       <div>
         <label class="block text-xs text-slate-400 mb-2 font-mono">Système de jeu</label>
         <div class="flex gap-3">
-          <button @click="if (gameSystem!=='40k') { gameSystem='40k'; forcedFaction=''; }"
+          <button @click="if (gameSystem!=='40k') { gameSystem='40k'; forcedFaction=''; forcedChapter=''; }"
             class="flex-1 py-3 rounded-lg border font-orbitron text-sm tracking-wide transition"
             :class="gameSystem==='40k' ? 'bg-neon-green/10 border-neon-green text-neon-green shadow-glowGreen' : 'border-void-700 text-slate-500 hover:border-slate-500'">
             WARHAMMER 40,000
             <div class="text-[10px] font-mono opacity-70 mt-0.5">11e édition (v11)</div>
           </button>
-          <button @click="if (gameSystem!=='aos') { gameSystem='aos'; forcedFaction=''; }"
+          <button @click="if (gameSystem!=='aos') { gameSystem='aos'; forcedFaction=''; forcedChapter=''; }"
             class="flex-1 py-3 rounded-lg border font-orbitron text-sm tracking-wide transition"
             :class="gameSystem==='aos' ? 'bg-neon-cyan/10 border-neon-cyan text-neon-cyan shadow-glowCyan' : 'border-void-700 text-slate-500 hover:border-slate-500'">
             AGE OF SIGMAR
@@ -130,6 +130,14 @@
           <template x-for="f in factionOptions()" :key="f"><option :value="f" x-text="f"></option></template>
         </select>
         <span x-show="report && forcedFaction" class="text-[10px] font-mono text-neon-amber">forcée — l'analyse se met à jour au changement</span>
+        <span x-show="showChapter()" class="flex items-center gap-2">
+          <label class="text-xs text-slate-400 font-mono" for="chapterSelect">Chapitre</label>
+          <select id="chapterSelect" x-model="forcedChapter" @change="onChapterChange()" :disabled="!canAnalyze()"
+            class="bg-void-800 border border-void-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 focus:border-neon-green/60 max-w-full">
+            <option value="">Auto-détection</option>
+            <template x-for="c in chapterOptions()" :key="c"><option :value="c" x-text="c"></option></template>
+          </select>
+        </span>
       </div>
 
       <div class="flex flex-wrap items-center gap-3">
@@ -140,6 +148,9 @@
         </button>
         <button @click="resetAll()" x-show="report"
           class="font-mono text-xs px-4 py-3 rounded-lg border border-void-700 text-slate-400 hover:border-slate-500 transition">Nouvelle analyse</button>
+        <button @click="analyze({ updateId: currentHistoryId })" x-show="report && currentHistoryId && canEdit()" :disabled="loading || !canAnalyze()"
+          title="Relance l'analyse sur la liste ci-dessus et remplace l'analyse ouverte dans l'historique (aucune nouvelle entrée)"
+          class="font-mono text-xs px-4 py-3 rounded-lg border border-neon-amber/50 text-neon-amber hover:bg-neon-amber/10 transition disabled:opacity-40">↻ Mettre à jour cette analyse</button>
         <button @click="exportPDF()" x-show="report" :disabled="exporting"
           class="font-mono text-xs px-4 py-3 rounded-lg border border-neon-cyan/50 text-neon-cyan hover:bg-neon-cyan/10 transition disabled:opacity-40 ml-auto">
           <span x-show="!exporting">⬇ Export PDF</span><span x-show="exporting">Génération...</span>
@@ -160,6 +171,7 @@
           <h2 class="font-orbitron text-lg text-slate-100" x-text="report.titre_rapport"></h2>
           <div class="flex flex-wrap gap-2 mt-2 mb-4">
             <span class="text-[10px] font-mono px-2 py-1 rounded-full bg-neon-green/10 border border-neon-green/30 text-neon-green" x-text="report.faction_detectee + (report.faction_forcee ? ' (forcée)' : '')"></span>
+            <span x-show="report.chapitre" class="text-[10px] font-mono px-2 py-1 rounded-full bg-neon-amber/10 border border-neon-amber/30 text-neon-amber" x-text="'Chapitre : ' + report.chapitre + (report.chapitre_force ? ' (forcé)' : '')"></span>
             <span class="text-[10px] font-mono px-2 py-1 rounded-full bg-neon-cyan/10 border border-neon-cyan/30 text-neon-cyan" x-text="report.edition"></span>
             <span class="text-[10px] font-mono px-2 py-1 rounded-full bg-void-700 text-slate-400" x-text="report.total_points + ' pts détectés — ' + report.nb_unites + ' unités'"></span>
           </div>
@@ -856,6 +868,65 @@ const FACTION_DB = {
 
 /* Dictionnaire de rôles (FR + EN). Catégories :
    antichar, antihorde, melee, tough, fast, scoring, leader, psychic */
+/* Chapitres Space Marines : affinent le profil qualitatif (style, forces, faiblesses, philosophie de contre) */
+const SM_CHAPTERS = [
+  {name:"Ultramarines", keys:["ultramarine","calgar","guilliman","tigurius","sicarius","macragge"],
+   style:"Chapitre de référence, très polyvalent : réponse correcte à tout type de menace, sans spécialisation extrême.",
+   forces:["Polyvalence tir / mêlée","Adaptation en cours de partie","Personnages de commandement efficaces"],
+   faiblesses:["Aucune spécialité marquée face à une armée très spécialisée","Dépendance aux personnages d'aura"],
+   contrePhilo:"Ne pas chercher un point faible évident : imposer votre rythme, cibler les personnages d'aura et prendre l'avantage aux objectifs avant qu'il ne s'adapte."},
+  {name:"Blood Angels", keys:["blood angel","sanguinary","death company","dante","mephiston","sanguinius","lemartes","astorath"],
+   style:"Chapitre d'assaut : frappe rapide en mêlée portée par les jump packs, les charges et la Death Company.",
+   forces:["Fort impact de charge","Mobilité (jump packs, transports rapides)","Soutien de mêlée des Sanguinary Priests"],
+   faiblesses:["Tir plus modeste que les autres chapitres","Unités d'assaut fragiles si la charge échoue","Dépendance au contact dès le tour 2"],
+   contrePhilo:"Tenir à distance et punir le premier contact : écrans sacrifiables, neutraliser les jump packs avant la charge et refuser le combat en milieu de table."},
+  {name:"Dark Angels", keys:["dark angel","deathwing","ravenwing","azrael","belial","sammael","asmodai","jonson"],
+   style:"Chapitre d'élite à deux visages : Deathwing (Terminators, frappe en réserve) et Ravenwing (motos et speeders rapides).",
+   forces:["Terminators résistants (Deathwing)","Mobilité Ravenwing","Frappes de précision sur cibles prioritaires"],
+   faiblesses:["Peu d'unités pour tenir les objectifs","Dépendance aux réserves","Terminators vulnérables s'ils sont isolés"],
+   contrePhilo:"Saturer les zones d'arrivée des réserves, protéger vos objectifs arrière contre les motos et user les Terminators au tir en volume."},
+  {name:"Space Wolves", keys:["space wolves","wolf guard","blood claws","grey hunters","thunderwolf","fenrisian","logan grimnar","ragnar blackmane","njal","bjorn","wulfen","ulrik"],
+   style:"Chapitre de mêlée féroce : meutes de loups, Thunderwolf Cavalry et Wulfen pour une pression constante au corps à corps.",
+   forces:["Mêlée solide et mobile (Thunderwolf Cavalry)","Résilience des Wolf Guard","Pression rapide sur le centre"],
+   faiblesses:["Tir limité, peu d'antichar longue portée","Peu de soutien psychique","Unités de mêlée coûteuses"],
+   contrePhilo:"Exploiter son manque de portée : tirer d'abord sur la cavalerie, utiliser le terrain pour retarder la charge et jouer les objectifs à distance."},
+  {name:"Black Templars", keys:["black templar","crusader squad","sword brethren","emperor's champion","helbrecht","grimaldus","primaris crusader"],
+   style:"Ordre de croisés fanatiques : infanterie de mêlée, Crusader Squads et Emperor's Champion, sans psykers.",
+   forces:["Infanterie de mêlée robuste","Bonne présence sur objectifs au contact","Indépendance vis-à-vis du soutien psychique"],
+   faiblesses:["Aucun psyker : peu de soutien et de réponse psychique","Tir moyen","Mobilité limitée hors transports"],
+   contrePhilo:"Tirer sur les transports avant le déploiement des croisés, éviter le contact prolongé et absorber les charges avec des unités sacrifiables."},
+  {name:"Imperial Fists", keys:["imperial fist","sigismund","lysander","tor garadon"],
+   style:"Chapitre de siège et de tir lourd : Devastators, Heavy Intercessors et blindés pour tenir une ligne et écraser à distance.",
+   forces:["Tir lourd concentré","Tenue de position et d'objectifs","Résistance des unités lourdes"],
+   faiblesses:["Peu mobile, repositionnement difficile","Faible en mêlée","Sensible aux armées qui contournent la ligne de tir"],
+   contrePhilo:"Contourner la zone de tir : jouer les flancs, forcer des repositionnements et engager ses unités de tir en mêlée."},
+  {name:"Iron Hands", keys:["iron hands","iron father","feirros","manus"],
+   style:"Chapitre technologique et stoïque : Dreadnoughts, Techmarines et armures lourdes pour une armée très résistante.",
+   forces:["Très grande résilience","Réparation et soutien technique","Marcheurs et blindés solides"],
+   faiblesses:["Faible nombre de figurines","Mobilité réduite","Peu d'impact immédiat"],
+   contrePhilo:"Éviter l'usure frontale : jouer les objectifs et concentrer des armes à haute pénétration sur les gros éléments."},
+  {name:"Salamanders", keys:["salamander","vulkan","agatone","he'stan"],
+   style:"Chapitre de feu et d'artisans : lance-flammes, fuseurs et résilience pour tenir le terrain au plus près.",
+   forces:["Armes courte portée très létales (feu / fusion)","Résilience","Bonne tenue d'objectifs"],
+   faiblesses:["Portée limitée","Doit s'approcher de ses cibles","Mobilité moyenne"],
+   contrePhilo:"Garder la distance : tirer de loin, éviter les couloirs de feu et jouer les objectifs éloignés."},
+  {name:"White Scars", keys:["white scars","kor'sarro","jaghatai","outrider"],
+   style:"Chapitre de raid rapide : motos, Outriders et transports véloces pour frapper là où on ne les attend pas.",
+   forces:["Mobilité extrême","Frappes éclair sur objectifs","Capacité à choisir ses combats"],
+   faiblesses:["Fragile face au tir concentré","Peu de puissance de feu soutenue","Peu d'infanterie pour tenir un objectif"],
+   contrePhilo:"Garder des réserves pour punir les raids, couvrir vos objectifs arrière et concentrer le tir sur les motos dès qu'elles se découvrent."},
+  {name:"Raven Guard", keys:["raven guard","shrike","kayvaan"],
+   style:"Chapitre de furtivité et de frappe : infiltrateurs, Scouts et Assault Squads pour des coups précis sur l'arrière-ligne.",
+   forces:["Infiltration et déploiement avancé","Frappes en profondeur","Pression sur les objectifs adverses"],
+   faiblesses:["Unités légères fragiles","Peu de tir de soutien","Dépend de l'initiative du premier tour"],
+   contrePhilo:"Protéger vos objectifs arrière dès le déploiement, garder des unités de réaction et punir les infiltrateurs isolés."},
+  {name:"Deathwatch", keys:["deathwatch","watch captain","watch master","fortis kill team","indomitor","spectrus","talonstrike"],
+   style:"Spécialistes anti-xéno : Kill Teams d'élite avec armes spéciales et munitions adaptées à la cible.",
+   forces:["Choix d'armes très polyvalent","Précision sur les cibles prioritaires","Létalité d'élite"],
+   faiblesses:["Très peu d'unités, coût élevé","Fragile à la perte de personnages","Sensible à la saturation"],
+   contrePhilo:"Saturer avec des unités peu chères, multiplier les menaces et éviter de lui offrir les cibles pour lesquelles il est équipé."}
+];
+
 const ROLE_KEYS = {
   antichar: ['lascannon','canon laser','melta','fuseur','multi-melta','multifuseur','railgun','rail ','haywire','lance de','dark lance','blaster','canon à distorsion','distorsion','brightlance','lance éclatante','missile krak','krak','canon d\'assaut lourd','volcano','turbo-laser','canon magma','exorcist missile','canon sismique','anti-tank','antichar','harpon','canon jumelé perforant','gauss destructor','canon à induction','ion lourd','fusion'],
   antihorde: ['flamer','lance-flammes','heavy bolter','bolter lourd','gatling','minigun','canon rotatif','shuriken','catapulte shuriken','frag','blast','déflagration','mortier','mortar','grenade launcher','lance-grenades','burst cannon','canon rafale','stubber','mitrailleuse','autocannon','autocanon','canon automatique','bombardier','artillerie','battle cannon','canon de bataille','scatter','torrent','warpflame','volkite'],
@@ -1399,6 +1470,7 @@ function warRoomApp() {
   return {
     gameSystem: '40k',
     forcedFaction: '',
+    forcedChapter: '',
     newCanAnalyze: true, newCanEdit: true, newCanDelete: true, selfUnsub: null,
     currentHistoryId: null,
     rawList: '',
@@ -1723,8 +1795,35 @@ function warRoomApp() {
     },
     // Changement de faction : si une analyse est affichée, on la refait sur la même liste et on met à jour l'historique
     onFactionChange() {
+      if (this.forcedFaction && !this.isSpaceMarinesName(this.forcedFaction)) this.forcedChapter = '';
       if (this.report && this.rawList.trim()) this.analyze({ updateId: this.currentHistoryId });
     },
+    onChapterChange() {
+      if (this.report && this.rawList.trim()) this.analyze({ updateId: this.currentHistoryId });
+    },
+    isSpaceMarinesName(n) { return /^Space Marines/.test(n || ''); },
+    // Sélecteur de chapitre visible pour les listes Space Marines (faction forcée, déjà analysée ou détectée dans la liste)
+    showChapter() {
+      if (this.gameSystem !== '40k') return false;
+      if (this.forcedFaction) return this.isSpaceMarinesName(this.forcedFaction);
+      if (this.report && this.report.faction_detectee) return this.isSpaceMarinesName(this.report.faction_detectee);
+      const f = this.rawList.trim() ? this.detectFaction(this.rawList) : null;
+      return !!f && this.isSpaceMarinesName(f.name);
+    },
+    chapterOptions() { return SM_CHAPTERS.map(c => c.name); },
+    detectChapter(raw) {
+      const low = (raw || '').toLowerCase(); let best = null, bh = 0;
+      for (const c of SM_CHAPTERS) { let h = 0; for (const k of c.keys) if (low.includes(k)) h++; if (h > bh) { bh = h; best = c; } }
+      return best;
+    },
+    withChapter(f, c) {
+      return { ...f,
+        style: 'Chapitre ' + c.name + ' : ' + c.style + ' ' + f.style,
+        forces: [...c.forces, ...f.forces].slice(0, 5),
+        faiblesses: [...c.faiblesses, ...f.faiblesses].slice(0, 5),
+        contrePhilo: c.contrePhilo };
+    },
+    factionLabel(r) { return r.chapitre ? r.faction_detectee + ' — ' + r.chapitre : r.faction_detectee; },
 
     detectFaction(raw) {
       const low = raw.toLowerCase();
@@ -1786,6 +1885,12 @@ function warRoomApp() {
         }
         const forced = this.forcedFactionObj();
         if (forced) faction = forced;
+        let chapter = null, chapterForced = false;
+        if (this.gameSystem === '40k' && faction && this.isSpaceMarinesName(faction.name)) {
+          chapter = this.forcedChapter ? SM_CHAPTERS.find(c => c.name === this.forcedChapter) : this.detectChapter(this.rawList);
+          chapterForced = !!(this.forcedChapter && chapter);
+          if (chapter) faction = this.withChapter(faction, chapter);
+        }
         const refPts = Math.max(totalPts, 750);
         const d = cat => (cats[cat] / refPts) * 1000;
 
@@ -1920,11 +2025,13 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
         if (dx) resume += ' ' + dx.txt;
 
         const reportData = {
-          titre_rapport: `Analyse tactique — ${faction ? faction.name : 'Liste ' + (is40k ? '40k' : 'AoS')}`,
+          titre_rapport: `Analyse tactique — ${faction ? faction.name : 'Liste ' + (is40k ? '40k' : 'AoS')}${chapter ? ' · ' + chapter.name : ''}`,
           systeme: this.gameSystem,
           edition: is40k ? '11e édition (v11)' : '4e édition (v4)',
           faction_detectee: faction ? faction.name : 'Non identifiée',
           faction_forcee: forced ? faction.name : null,
+          chapitre: chapter ? chapter.name : null,
+          chapitre_force: chapterForced,
           detachement_ou_formation: '—',
           total_points: totalPts,
           nb_unites: units.length,
@@ -1936,7 +2043,7 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
         const old = updateId ? this.history.find(h => h.id === updateId) : null;
         this.report = reportData;
         if (old) {
-          const patch = { faction: reportData.faction_detectee, report: reportData, rawList: this.rawList };
+          const patch = { faction: this.factionLabel(reportData), report: reportData, rawList: this.rawList };
           if (!old.titre || (old.report && old.titre === old.report.titre_rapport)) patch.titre = reportData.titre_rapport;
           this._updateHistory(updateId, patch);
           this.currentHistoryId = updateId;
@@ -1952,7 +2059,7 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
       }
     },
 
-    resetAll() { this.report = null; this.rawList = ''; this.error = ''; this.forcedFaction = ''; this.currentHistoryId = null; },
+    resetAll() { this.report = null; this.rawList = ''; this.error = ''; this.forcedFaction = ''; this.forcedChapter = ''; this.currentHistoryId = null; },
 
     // ---------- Helpers UI ----------
     arr(v) { return Array.isArray(v) ? v : []; },
@@ -2002,7 +2109,7 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
         id: Date.now().toString(36) + Math.random().toString(36).slice(2,7),
         date: new Date().toISOString(),
         system,
-        faction: reportData.faction_detectee,
+        faction: this.factionLabel(reportData),
         titre: reportData.titre_rapport,
         createdBy: this.user ? this.user.username : '',
         rawList, report: reportData
@@ -2020,6 +2127,7 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
       this.rawList = entry.rawList;
       this.report = entry.report;
       this.forcedFaction = (entry.report && entry.report.faction_forcee) || '';
+      this.forcedChapter = (entry.report && entry.report.chapitre_force && entry.report.chapitre) || '';
       this.currentHistoryId = entry.id;
       this.showHistory = false;
       window.scrollTo({ top: 0, behavior: 'smooth' });
