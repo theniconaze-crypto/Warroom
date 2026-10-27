@@ -1,0 +1,1741 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WAR-ROOM | Analyse Tactique Locale</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=JetBrains+Mono:wght@400;500;600&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.5/dist/cdn.min.js" defer></script>
+
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          void: { 950:'#05070a', 900:'#0b0f14', 850:'#0e141b', 800:'#131b24', 700:'#1b2530' },
+          neon: { green:'#39ff8f', cyan:'#2de3ff', amber:'#ffb347', red:'#ff4d6a' }
+        },
+        fontFamily: {
+          orbitron: ['Orbitron','sans-serif'],
+          mono: ['JetBrains Mono','monospace'],
+          rajdhani: ['Rajdhani','sans-serif']
+        },
+        boxShadow: {
+          glowGreen: '0 0 20px rgba(57,255,143,0.35)',
+          glowCyan: '0 0 20px rgba(45,227,255,0.35)'
+        }
+      }
+    }
+  }
+</script>
+
+<style>
+  [x-cloak]{display:none!important}
+  body{font-family:'Rajdhani',sans-serif}
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-track{background:#0b0f14}
+  ::-webkit-scrollbar-thumb{background:#1b2530;border-radius:4px}
+  .scanline-bg{background-image:linear-gradient(rgba(57,255,143,0.02) 1px,transparent 1px);background-size:100% 3px}
+  textarea:focus,input:focus,select:focus{outline:none}
+</style>
+</head>
+
+<body class="bg-void-950 text-slate-200 scanline-bg min-h-screen">
+<div x-data="warRoomApp()" x-init="init()" x-cloak class="min-h-screen flex flex-col">
+
+  <!-- ===================== HEADER ===================== -->
+  <header class="border-b border-void-700 bg-void-900/80 backdrop-blur sticky top-0 z-30">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-lg bg-neon-green/10 border border-neon-green/40 flex items-center justify-center shadow-glowGreen">
+          <span class="font-orbitron text-neon-green text-lg">⚔</span>
+        </div>
+        <div>
+          <h1 class="font-orbitron text-lg sm:text-xl tracking-widest text-slate-100">WAR-ROOM <span class="text-neon-green">LOCAL</span></h1>
+          <p class="text-[11px] text-slate-500 font-mono tracking-wide">MOTEUR HORS-LIGNE — 40K v11 / AOS v4</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button @click="openSettings()"
+          class="flex items-center gap-2 text-xs font-mono px-3 py-2 rounded-lg border border-void-700 bg-void-800 hover:border-neon-cyan/50 hover:text-neon-cyan transition">
+          <span>⚙</span><span class="hidden sm:inline">Réglages</span>
+        </button>
+        <button @click="showHistory = true"
+          class="flex items-center gap-2 text-xs font-mono px-3 py-2 rounded-lg border border-void-700 bg-void-800 hover:border-neon-cyan/50 hover:text-neon-cyan transition">
+          <span>🕘</span><span class="hidden sm:inline">Historique</span>
+          <span class="bg-void-700 px-1.5 py-0.5 rounded text-[10px]" x-text="history.length"></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===================== MAIN ===================== -->
+  <main class="flex-1 max-w-6xl mx-auto w-full px-4 py-6 space-y-6">
+
+    <!-- CONFIG -->
+    <section class="bg-void-900 border border-void-700 rounded-xl p-5 space-y-5">
+      <div class="flex items-center justify-between">
+        <h2 class="font-orbitron text-xs tracking-widest text-neon-cyan">CONFIGURATION</h2>
+        <span class="text-[10px] font-mono px-2 py-1 rounded-full bg-neon-green/10 border border-neon-green/30 text-neon-green">● 100% LOCAL — AUCUNE API</span>
+      </div>
+
+      <div>
+        <label class="block text-xs text-slate-400 mb-2 font-mono">Système de jeu</label>
+        <div class="flex gap-3">
+          <button @click="gameSystem='40k'"
+            class="flex-1 py-3 rounded-lg border font-orbitron text-sm tracking-wide transition"
+            :class="gameSystem==='40k' ? 'bg-neon-green/10 border-neon-green text-neon-green shadow-glowGreen' : 'border-void-700 text-slate-500 hover:border-slate-500'">
+            WARHAMMER 40,000
+            <div class="text-[10px] font-mono opacity-70 mt-0.5">11e édition (v11)</div>
+          </button>
+          <button @click="gameSystem='aos'"
+            class="flex-1 py-3 rounded-lg border font-orbitron text-sm tracking-wide transition"
+            :class="gameSystem==='aos' ? 'bg-neon-cyan/10 border-neon-cyan text-neon-cyan shadow-glowCyan' : 'border-void-700 text-slate-500 hover:border-slate-500'">
+            AGE OF SIGMAR
+            <div class="text-[10px] font-mono opacity-70 mt-0.5">4e édition (v4)</div>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- INPUT -->
+    <section class="bg-void-900 border border-void-700 rounded-xl p-5 space-y-4">
+      <h2 class="font-orbitron text-xs tracking-widest text-neon-cyan">LISTE D'ARMÉE</h2>
+      <textarea x-model="rawList" rows="10" placeholder="Collez ici votre liste (NewRecruit, application officielle Games Workshop, ALN...) — chaque unité doit comporter son coût en points."
+        class="w-full bg-void-800 border border-void-700 rounded-lg px-3 py-3 text-sm font-mono text-slate-200 resize-y focus:border-neon-green/60"></textarea>
+
+      <div class="flex flex-wrap items-center gap-3">
+        <button @click="analyze()" :disabled="loading"
+          class="font-orbitron text-sm tracking-wide px-5 py-3 rounded-lg bg-neon-green/10 border border-neon-green text-neon-green hover:bg-neon-green/20 transition disabled:opacity-40 shadow-glowGreen">
+          <span x-show="!loading">▶ LANCER L'ANALYSE</span>
+          <span x-show="loading">ANALYSE...</span>
+        </button>
+        <button @click="resetAll()" x-show="report"
+          class="font-mono text-xs px-4 py-3 rounded-lg border border-void-700 text-slate-400 hover:border-slate-500 transition">Nouvelle analyse</button>
+        <button @click="exportPDF()" x-show="report" :disabled="exporting"
+          class="font-mono text-xs px-4 py-3 rounded-lg border border-neon-cyan/50 text-neon-cyan hover:bg-neon-cyan/10 transition disabled:opacity-40 ml-auto">
+          <span x-show="!exporting">⬇ Export PDF</span><span x-show="exporting">Génération...</span>
+        </button>
+      </div>
+      <div x-show="error" x-transition class="bg-neon-red/10 border border-neon-red/40 text-neon-red text-xs rounded-lg p-3 font-mono" x-text="error"></div>
+    </section>
+
+    <!-- ===================== REPORT ===================== -->
+    <template x-if="report && !loading">
+      <div x-ref="reportContent" class="space-y-6 bg-void-950 p-1">
+
+        <!-- Header -->
+        <section class="bg-void-900 border border-void-700 rounded-xl p-5">
+          <h2 class="font-orbitron text-lg text-slate-100" x-text="report.titre_rapport"></h2>
+          <div class="flex flex-wrap gap-2 mt-2 mb-4">
+            <span class="text-[10px] font-mono px-2 py-1 rounded-full bg-neon-green/10 border border-neon-green/30 text-neon-green" x-text="report.faction_detectee"></span>
+            <span class="text-[10px] font-mono px-2 py-1 rounded-full bg-neon-cyan/10 border border-neon-cyan/30 text-neon-cyan" x-text="report.edition"></span>
+            <span class="text-[10px] font-mono px-2 py-1 rounded-full bg-void-700 text-slate-400" x-text="report.total_points + ' pts détectés — ' + report.nb_unites + ' unités'"></span>
+          </div>
+          <div class="flex items-start gap-3 bg-neon-amber/10 border border-neon-amber/30 rounded-lg p-3 mb-4">
+            <span class="text-neon-amber font-mono text-xs mt-0.5">⚠</span>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              Analyse générée par le moteur heuristique local (classification par mots-clés, sans IA ni données de règles embarquées).
+              Aucun nom de règle, stratagème ou profil n'est cité — consultez
+              <a href="https://wahapedia.ru" target="_blank" rel="noopener" class="text-neon-cyan underline">Wahapedia</a>
+              pour les règles exactes de l'édition en cours.
+            </p>
+          </div>
+          <p class="text-sm text-slate-400 leading-relaxed" x-text="report.resume_executif"></p>
+        </section>
+
+        <!-- Scores -->
+        <section class="bg-void-900 border border-void-700 rounded-xl p-5">
+          <h3 class="font-orbitron text-sm text-neon-cyan mb-4 tracking-wide">TABLEAU DE BORD TACTIQUE</h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <template x-for="(s,i) in arr(report.scores)" :key="i">
+              <div class="bg-void-800 border border-void-700 rounded-xl p-4">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="font-orbitron text-xs tracking-wide text-slate-300" x-text="s.label"></span>
+                  <span class="font-mono text-lg font-bold" :class="scoreColor(s.valeur)" x-text="s.valeur + '/10'"></span>
+                </div>
+                <div class="w-full h-2 bg-void-700 rounded-full overflow-hidden mb-2">
+                  <div class="h-full rounded-full" :class="scoreBarColor(s.valeur)" :style="'width:'+(s.valeur*10)+'%'"></div>
+                </div>
+                <p class="text-xs text-slate-400 leading-relaxed" x-text="s.commentaire"></p>
+              </div>
+            </template>
+          </div>
+          <div class="flex flex-wrap gap-4 text-[11px] text-slate-500 mt-4">
+            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-neon-green"></span> ≥7 Fort</span>
+            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-neon-amber"></span> 5-6 Correct</span>
+            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-neon-red"></span> ≤4 Faible</span>
+          </div>
+        </section>
+
+        <!-- Pivots -->
+        <section class="bg-void-900 border border-void-700 rounded-xl p-5">
+          <h3 class="font-orbitron text-sm text-neon-cyan mb-4 tracking-wide">PIVOTS DE LISTE</h3>
+          <div class="space-y-3">
+            <template x-for="(p,i) in arr(report.pivots_de_liste)" :key="i">
+              <div class="bg-void-800 border border-void-700 rounded-xl p-4">
+                <div class="flex items-center justify-between mb-1">
+                  <span class="font-semibold text-neon-cyan" x-text="p.unite"></span>
+                  <span class="text-[10px] uppercase tracking-wide bg-void-700 px-2 py-0.5 rounded-full text-slate-300" x-text="p.role"></span>
+                </div>
+                <p class="text-xs text-slate-400" x-text="p.explication"></p>
+              </div>
+            </template>
+          </div>
+        </section>
+
+        <!-- Gameplan -->
+        <section class="bg-void-900 border border-void-700 rounded-xl p-5">
+          <h3 class="font-orbitron text-sm text-neon-cyan mb-4 tracking-wide">PLAN DE JEU</h3>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="bg-void-800 border border-void-700 rounded-xl p-4">
+              <h4 class="font-orbitron text-xs text-neon-green mb-2">OUVERTURE (T1-2)</h4>
+              <p class="text-xs text-slate-400 leading-relaxed" x-text="report.gameplan.ouverture"></p>
+            </div>
+            <div class="bg-void-800 border border-void-700 rounded-xl p-4">
+              <h4 class="font-orbitron text-xs text-neon-green mb-2">MILIEU DE PARTIE</h4>
+              <p class="text-xs text-slate-400 leading-relaxed" x-text="report.gameplan.milieu_de_partie"></p>
+            </div>
+            <div class="bg-void-800 border border-void-700 rounded-xl p-4">
+              <h4 class="font-orbitron text-xs text-neon-green mb-2">FIN DE PARTIE (T3+)</h4>
+              <p class="text-xs text-slate-400 leading-relaxed" x-text="report.gameplan.fin_de_partie"></p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Plan adverse -->
+        <section class="bg-void-900 border border-void-700 rounded-xl p-5">
+          <h3 class="font-orbitron text-sm text-neon-red mb-4 tracking-wide">PLAN DE JEU ADVERSE — COMMENT BATTRE CETTE LISTE</h3>
+          <div class="bg-void-800 border border-neon-red/30 rounded-xl p-4 mb-4">
+            <h4 class="font-orbitron text-xs text-neon-red mb-2">PHILOSOPHIE GÉNÉRALE</h4>
+            <p class="text-xs text-slate-400 leading-relaxed" x-text="report.plan_contre.philosophie"></p>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div class="bg-void-800 border border-void-700 rounded-xl p-4">
+              <h4 class="font-orbitron text-xs text-slate-300 mb-2">DÉPLOIEMENT</h4>
+              <p class="text-xs text-slate-400 leading-relaxed" x-text="report.plan_contre.deploiement"></p>
+            </div>
+            <div class="bg-void-800 border border-void-700 rounded-xl p-4">
+              <h4 class="font-orbitron text-xs text-slate-300 mb-2">OUVERTURE (T1-2)</h4>
+              <p class="text-xs text-slate-400 leading-relaxed" x-text="report.plan_contre.ouverture"></p>
+            </div>
+            <div class="bg-void-800 border border-void-700 rounded-xl p-4">
+              <h4 class="font-orbitron text-xs text-slate-300 mb-2">MILIEU DE PARTIE</h4>
+              <p class="text-xs text-slate-400 leading-relaxed" x-text="report.plan_contre.milieu_de_partie"></p>
+            </div>
+            <div class="bg-void-800 border border-void-700 rounded-xl p-4">
+              <h4 class="font-orbitron text-xs text-slate-300 mb-2">FIN DE PARTIE (T3+)</h4>
+              <p class="text-xs text-slate-400 leading-relaxed" x-text="report.plan_contre.fin_de_partie"></p>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="bg-neon-green/5 border border-neon-green/30 rounded-xl p-4">
+              <h4 class="font-orbitron text-xs text-neon-green mb-2">🎯 CIBLES PRIORITAIRES</h4>
+              <ul class="space-y-1">
+                <template x-for="(c,i) in arr(report.plan_contre.cibles_prioritaires)" :key="i">
+                  <li class="text-xs text-slate-400 flex gap-2"><span class="text-neon-green">▸</span><span x-text="c"></span></li>
+                </template>
+              </ul>
+            </div>
+            <div class="bg-neon-red/5 border border-neon-red/30 rounded-xl p-4">
+              <h4 class="font-orbitron text-xs text-neon-red mb-2">⛔ ERREURS À ÉVITER</h4>
+              <ul class="space-y-1">
+                <template x-for="(c,i) in arr(report.plan_contre.erreurs_a_eviter)" :key="i">
+                  <li class="text-xs text-slate-400 flex gap-2"><span class="text-neon-red">▸</span><span x-text="c"></span></li>
+                </template>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- Matchups -->
+        <section class="bg-void-900 border border-void-700 rounded-xl p-5">
+          <h3 class="font-orbitron text-sm text-neon-cyan mb-4 tracking-wide">MATCHUPS & CONTRES</h3>
+          <div class="space-y-2">
+            <template x-for="(m,i) in arr(report.matchups)" :key="i">
+              <div class="flex items-center justify-between bg-void-800 border border-void-700 rounded-xl p-3 gap-3">
+                <div>
+                  <div class="text-sm font-semibold text-slate-200" x-text="m.archetype"></div>
+                  <div class="text-xs text-slate-500" x-text="m.details"></div>
+                </div>
+                <span class="text-[10px] px-2 py-1 rounded-full font-mono whitespace-nowrap"
+                  :class="m.evaluation==='Favorable' ? 'bg-neon-green/15 text-neon-green' : (m.evaluation==='Défavorable' ? 'bg-neon-red/15 text-neon-red' : 'bg-neon-amber/15 text-neon-amber')"
+                  x-text="m.evaluation"></span>
+              </div>
+            </template>
+          </div>
+        </section>
+
+        <!-- Règles : stratagèmes / aptitudes -->
+        <template x-if="report.regles">
+        <section class="bg-void-900 border border-void-700 rounded-xl p-5">
+          <h3 class="font-orbitron text-sm text-neon-cyan mb-4 tracking-wide" x-text="report.regles.titre"></h3>
+          <div class="space-y-4">
+            <template x-for="(b,bi) in arr(report.regles.blocs)" :key="bi">
+              <div class="bg-void-800 border border-void-700 rounded-lg p-4">
+                <div class="flex flex-wrap items-baseline gap-2 mb-2">
+                  <span class="font-orbitron text-neon-green text-sm" x-text="b.titre"></span>
+                  <span class="text-[11px] font-mono text-slate-500" x-text="b.meta"></span>
+                </div>
+                <template x-for="(sec,si) in arr(b.sections)" :key="si">
+                  <div class="mb-3">
+                    <p class="text-[11px] font-mono text-neon-cyan mb-1" x-text="sec.titre"></p>
+                    <template x-for="(it,ii) in arr(sec.items)" :key="ii">
+                      <div class="py-2 border-t border-void-700/60">
+                        <div class="flex flex-wrap items-center gap-2">
+                          <span class="font-semibold text-slate-100 text-sm" x-text="it.nom"></span>
+                          <span x-show="it.tag" class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-neon-cyan/10 border border-neon-cyan/30 text-neon-cyan" x-text="it.tag"></span>
+                        </div>
+                        <p x-show="it.texte" class="text-xs text-slate-400 leading-relaxed mt-1" x-text="it.texte"></p>
+                        <p x-show="it.note" class="text-[11px] text-neon-amber mt-1" x-text="it.note"></p>
+                      </div>
+                    </template>
+                  </div>
+                </template>
+              </div>
+            </template>
+            <template x-for="(n,ni) in arr(report.regles.notes)" :key="'n'+ni">
+              <p class="text-xs font-mono text-slate-500" x-text="'ℹ ' + n"></p>
+            </template>
+          </div>
+        </section>
+        </template>
+
+        <!-- Vulnérabilités -->
+        <section class="bg-void-900 border border-void-700 rounded-xl p-5">
+          <h3 class="font-orbitron text-sm text-neon-cyan mb-4 tracking-wide">VULNÉRABILITÉS CLÉS</h3>
+          <div class="flex flex-wrap gap-2">
+            <template x-for="(v,i) in arr(report.vulnerabilites_cles)" :key="i">
+              <span class="text-xs bg-neon-red/10 border border-neon-red/30 text-neon-red px-3 py-1 rounded-full" x-text="v"></span>
+            </template>
+          </div>
+        </section>
+
+      </div>
+    </template>
+  </main>
+
+  <!-- ===================== HISTORY DRAWER ===================== -->
+  <div x-show="showHistory" x-transition.opacity @click="showHistory=false" class="fixed inset-0 bg-black/60 z-40"></div>
+  <div x-show="showHistory" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
+    x-transition:leave="transition ease-in duration-200" x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full"
+    class="fixed right-0 top-0 h-full w-full sm:w-96 bg-void-900 border-l border-void-700 z-50 overflow-y-auto">
+    <div class="p-5 flex items-center justify-between border-b border-void-700 sticky top-0 bg-void-900">
+      <h3 class="font-orbitron text-sm text-neon-cyan tracking-wide">HISTORIQUE</h3>
+      <button @click="showHistory=false" class="text-slate-500 hover:text-slate-200">✕</button>
+    </div>
+    <div class="p-5 space-y-3">
+      <p x-show="cloudStatus" class="text-[10px] font-mono text-slate-500" x-text="cloudStatus"></p>
+      <button x-show="history.length>0" @click="clearAllHistory()"
+        class="w-full text-xs font-mono text-neon-red border border-neon-red/30 rounded-lg py-2 hover:bg-neon-red/10 transition">🗑 Tout effacer</button>
+      <template x-if="history.length===0"><p class="text-xs text-slate-500 font-mono">Aucune analyse enregistrée.</p></template>
+      <template x-for="h in history" :key="h.id">
+        <div class="bg-void-800 border border-void-700 rounded-xl p-3">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-void-700 text-slate-400" x-text="h.system==='40k' ? '40K' : 'AOS'"></span>
+            <span class="text-[10px] font-mono text-slate-600" x-text="formatDate(h.date)"></span>
+          </div>
+          <div class="text-sm text-slate-200 font-semibold mb-1" x-text="h.faction"></div>
+          <div class="text-xs text-slate-500 mb-2 truncate" x-text="h.titre"></div>
+          <div class="flex gap-2">
+            <button @click="openHistoryItem(h.id)" class="flex-1 text-xs font-mono text-neon-green border border-neon-green/30 rounded-lg py-1.5 hover:bg-neon-green/10 transition">Recharger</button>
+            <button @click="deleteHistoryItem(h.id)" class="text-xs font-mono text-neon-red border border-neon-red/30 rounded-lg px-3 py-1.5 hover:bg-neon-red/10 transition">✕</button>
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <!-- ===================== SETTINGS (protégé par mot de passe) ===================== -->
+  <div x-show="showSettings" x-transition.opacity @click="closeSettings()" class="fixed inset-0 bg-black/60 z-40"></div>
+  <div x-show="showSettings" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
+    x-transition:leave="transition ease-in duration-200" x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full"
+    @keydown.escape.window="showSettings && closeSettings()"
+    class="fixed right-0 top-0 h-full w-full sm:w-[34rem] bg-void-900 border-l border-void-700 z-50 overflow-y-auto">
+    <div class="p-5 flex items-center justify-between border-b border-void-700 sticky top-0 bg-void-900 z-10">
+      <h3 class="font-orbitron text-sm text-neon-cyan tracking-wide">⚙ RÉGLAGES</h3>
+      <button @click="closeSettings()" class="text-slate-500 hover:text-slate-200">✕</button>
+    </div>
+
+    <!-- Verrou -->
+    <div x-show="!settingsUnlocked" class="p-5 space-y-3">
+      <p class="text-xs text-slate-400 font-mono">Accès protégé — saisissez le mot de passe pour gérer l'import des données.</p>
+      <input type="password" x-ref="pwdField" x-model="pwdInput" @keydown.enter="unlockSettings()" autocomplete="off" placeholder="Mot de passe"
+        class="w-full bg-void-800 border border-void-700 rounded-lg px-3 py-2 text-sm font-mono text-slate-200 focus:border-neon-cyan/60">
+      <div class="flex items-center gap-3">
+        <button @click="unlockSettings()" class="text-xs font-mono px-4 py-2 rounded-lg border border-neon-cyan/50 text-neon-cyan hover:bg-neon-cyan/10 transition">Déverrouiller</button>
+        <span class="text-[11px] font-mono text-neon-red" x-text="pwdError"></span>
+      </div>
+    </div>
+
+    <!-- Contenu (rendu uniquement une fois déverrouillé) -->
+    <template x-if="settingsUnlocked">
+      <div class="p-5 space-y-4">
+        <h2 class="font-orbitron text-xs tracking-widest text-neon-cyan">IMPORT DES DONNÉES</h2>
+      <h4 class="font-orbitron text-[10px] tracking-widest text-slate-400">GÉNÉRAL</h4>
+      <!-- Data pack -->
+      <details class="bg-void-800 border border-void-700 rounded-lg p-3">
+        <summary class="text-xs font-mono text-slate-400 cursor-pointer">⚙ Pack de données personnalisé (optionnel) — étendre le dictionnaire d'unités</summary>
+        <p class="text-[11px] text-slate-500 mt-2 leading-relaxed">
+          Collez un JSON au format <code class="text-neon-cyan">{"motscles":{"nom d'arme ou d'unité":"categorie"}}</code>.
+          Catégories valides : <code>antichar</code>, <code>antihorde</code>, <code>melee</code>, <code>tough</code>, <code>fast</code>, <code>scoring</code>, <code>leader</code>, <code>psychic</code>.
+          Vous pouvez le construire à partir des exports Wahapedia (Datasheets.csv / Wargear.csv). Stocké en local uniquement.
+        </p>
+        <textarea x-model="dataPackRaw" rows="4" placeholder='{"motscles":{"volkite":"antihorde","canon à conversion":"antichar"}}'
+          class="w-full mt-2 bg-void-900 border border-void-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-200"></textarea>
+        <div class="flex items-center gap-3 mt-2">
+          <button @click="saveDataPack()" class="text-xs font-mono px-3 py-1.5 rounded-lg border border-neon-green/40 text-neon-green hover:bg-neon-green/10 transition">Enregistrer</button>
+          <button @click="clearDataPack()" class="text-xs font-mono px-3 py-1.5 rounded-lg border border-void-700 text-slate-400 hover:border-slate-500 transition">Réinitialiser</button>
+          <span class="text-[11px] font-mono text-slate-500" x-text="dataPackStatus"></span>
+        </div>
+      </details>
+
+      <h4 class="font-orbitron text-[10px] tracking-widest text-neon-green pt-2">WARHAMMER 40,000</h4>
+      <!-- Import Wahapedia -->
+      <details class="bg-void-800 border border-void-700 rounded-lg p-3">
+        <summary class="text-xs font-mono text-slate-400 cursor-pointer">📦 IMPORT 40K — Wahapedia « Export Data » (CSV) — analyse chiffrée sur les vraies fiches
+          <span class="ml-2 text-neon-green" x-show="wStatus.startsWith('✓')">● actif</span></summary>
+        <p class="text-[11px] text-slate-500 mt-2 leading-relaxed">
+          Sélectionnez en une fois les fichiers CSV de l'export (séparateur « | », UTF-8). Indispensables : <code class="text-neon-cyan">Datasheets.csv</code>, <code class="text-neon-cyan">Datasheets_models.csv</code>.
+          Recommandés : Factions, Datasheets_wargear, Datasheets_abilities, Abilities, Datasheets_keywords, Datasheets_models_cost, Datasheets_leader, Last_update.
+          Les unités de la liste sont reconnues par leur nom : profils (T/Sv/PV/OC/M), armes, mots-clés, coûts et escortes de personnages alimentent les scores. Stocké en local (IndexedDB), 40k uniquement.
+        </p>
+        <div class="flex flex-wrap items-center gap-3 mt-2">
+          <input type="file" multiple accept=".csv,.txt" @change="importWaha($event)" class="text-xs font-mono text-slate-300 file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border file:border-neon-green/40 file:bg-transparent file:text-neon-green">
+          <button @click="clearWaha()" class="text-xs font-mono px-3 py-1.5 rounded-lg border border-void-700 text-slate-400 hover:border-slate-500 transition">Supprimer les données</button>
+          <span class="text-[11px] font-mono text-slate-500" x-text="wStatus"></span>
+        </div>
+      </details>
+
+      <h4 class="font-orbitron text-[10px] tracking-widest text-neon-cyan pt-2">AGE OF SIGMAR</h4>
+      <!-- Import AoS -->
+      <details class="bg-void-800 border border-void-700 rounded-lg p-3">
+        <summary class="text-xs font-mono text-slate-400 cursor-pointer">📦 IMPORT AGE OF SIGMAR — pack CSV (warscrolls, armes, règles de faction &amp; sous-faction)
+          <span class="ml-2 text-neon-cyan" x-show="aStatus.startsWith('✓')">● actif</span></summary>
+        <p class="text-[11px] text-slate-500 mt-2 leading-relaxed">
+          Import indépendant du 40k. Sélectionnez tous les CSV AoS en une fois (séparateur détecté automatiquement). Les fichiers sont classés par leur <b>nom</b> :
+          <code>Warscrolls</code> (profils), <code>…Weapons</code> (armes), <code>…Keywords</code>, <code>Warscroll_abilities</code>, <code>Factions</code> ; tout autre fichier
+          (<code>Abilities</code>, <code>Battle_traits</code>, <code>Subfactions</code>, <code>Formations</code>, <code>Lores</code>, <code>Artefacts</code>…) alimente l'analyse des aptitudes clés et des règles de sous-faction.
+          Les colonnes sont reconnues par alias (name, faction_id, subfaction, description, phase, health, save, move, control, models, range, attacks, hit, wound, rend, damage…).
+        </p>
+        <div class="flex flex-wrap items-center gap-3 mt-2">
+          <input type="file" multiple accept=".csv,.txt" @change="importAos($event)" class="text-xs font-mono text-slate-300 file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border file:border-neon-cyan/40 file:bg-transparent file:text-neon-cyan">
+          <button @click="clearAos()" class="text-xs font-mono px-3 py-1.5 rounded-lg border border-void-700 text-slate-400 hover:border-slate-500 transition">Supprimer les données AoS</button>
+          <span class="text-[11px] font-mono text-slate-500" x-text="aStatus"></span>
+        </div>
+      </details>
+
+      <!-- Pack règles AoS (secours JSON) -->
+      <details class="bg-void-800 border border-void-700 rounded-lg p-3">
+        <summary class="text-xs font-mono text-slate-400 cursor-pointer">📜 Pack règles AoS (secours JSON, si vous n'importez pas de CSV)</summary>
+        <p class="text-[11px] text-slate-500 mt-2 leading-relaxed">
+          Aucune donnée AoS n'est embarquée (pour éviter toute règle obsolète) : collez vos règles au format
+          <code class="text-neon-cyan">{"aos":{"factions":{"Nom faction":{"aptitudes":[{"nom":"…","texte":"…","phase":"Hero"}],"subfactions":{"Nom sous-faction":[{"nom":"…","texte":"…"}]}}},"regles":{"Nom de trait/artefact/formation":"texte"}}}</code>.
+          Les sous-factions sont reconnues par leur nom dans la liste ; les lignes « Battle Formation : … », « Heroic Trait : … », « Artefact : … », « Spell Lore : … » sont relevées automatiquement.
+        </p>
+        <textarea x-model="aosPackRaw" rows="5" class="w-full mt-2 bg-void-900 border border-void-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-200"></textarea>
+        <div class="flex items-center gap-3 mt-2">
+          <button @click="saveAosPack()" class="text-xs font-mono px-3 py-1.5 rounded-lg border border-neon-green/40 text-neon-green hover:bg-neon-green/10 transition">Enregistrer</button>
+          <button @click="clearAosPack()" class="text-xs font-mono px-3 py-1.5 rounded-lg border border-void-700 text-slate-400 hover:border-slate-500 transition">Réinitialiser</button>
+          <span class="text-[11px] font-mono text-slate-500" x-text="aosPackStatus"></span>
+        </div>
+      </details>
+      </div>
+    </template>
+  </div>
+
+  <footer class="border-t border-void-700 py-4 text-center text-[10px] text-slate-600 font-mono">
+    WAR-ROOM LOCAL — Moteur heuristique hors-ligne. Les règles exactes font foi : Wahapedia / publications officielles GW.
+  </footer>
+</div>
+
+<script>
+/* =========================================================
+   BASE DE CONNAISSANCES EMBARQUÉE (snapshot curé, générique)
+   Volontairement sans noms de règles/stratagèmes pour éviter
+   toute obsolescence. Style/forces/faiblesses structurelles.
+   ========================================================= */
+const FACTION_DB = {
+  '40k': [
+    {name:'Space Marines (Adeptus Astartes)', keys:['space marine','adeptus astartes','intercessor','ultramarine','blood angel','dark angel','space wolves','black templar','deathwatch','imperial fist','salamander','iron hands','white scars','terminator squad','bladeguard','gladiator','repulsor','primaris'],
+     style:"Armée polyvalente d'élite : profils solides, flexibilité tactique, bonnes options dans toutes les phases.",
+     forces:['Polyvalence toutes phases','Résilience par figurine élevée','Grande variété d\'outils'],
+     faiblesses:['Faible nombre de figurines','Coût élevé des erreurs de placement','Peut manquer de saturation'],
+     contrePhilo:"Punir le faible nombre d'activations : forcer des échanges inégaux, saturer les unités clés une par une et gagner la guerre des objectifs au nombre."},
+    {name:'Astra Militarum', keys:['astra militarum','garde impériale','imperial guard','leman russ','chimera','cadian','catachan','krieg','baneblade','basilisk','guardsmen','ogryn','bullgryn','sentinel','rogal dorn'],
+     style:"Armée de tir et de masse : artillerie, blindés et vagues d'infanterie sous ordres coordonnés.",
+     forces:['Volume de tir et artillerie','Masse d\'infanterie pour tenir le terrain','Blindés résistants'],
+     faiblesses:['Infanterie fragile en mêlée','Mobilité limitée','Dépendance aux officiers'],
+     contrePhilo:"Fermer la distance vite : neutraliser l'artillerie en priorité, engager l'infanterie en mêlée pour verrouiller les lignes de tir."},
+    {name:'Adeptus Custodes', keys:['custodes','custodian','allarus','wardens','vertus','caladius','trajann','blade champion'],
+     style:"Ultra-élite : très peu de figurines, chacune redoutable au tir comme en mêlée.",
+     forces:['Profils individuels exceptionnels','Excellente résilience','Mêlée dévastatrice'],
+     faiblesses:['Très peu d\'activations et de présence','Scoring difficile sur cartes larges','Chaque perte est critique'],
+     contrePhilo:"Jouer la carte à objectifs : éviter les confrontations frontales, étirer leur faible nombre sur toute la table et marquer ailleurs."},
+    {name:'Adepta Sororitas', keys:['sororitas','sisters of battle','battle sister','seraphim','repentia','castigator','exorcist','paragon','celestine','zephyrim','retributor'],
+     style:"Infanterie moyenne soutenue par des actes de foi et des pics de puissance ponctuels.",
+     forces:['Pics de puissance via ressources de foi','Bonne infanterie à mi-portée','Unités de contre-charge efficaces'],
+     faiblesses:['Endurance de base moyenne','Dépendance aux fenêtres de puissance','Véhicules peu nombreux'],
+     contrePhilo:"Épuiser leurs ressources de foi sur des menaces secondaires, puis frapper le cœur de la liste une fois les fenêtres de puissance consommées."},
+    {name:'Grey Knights', keys:['grey knight','nemesis dreadknight','paladins','purifier','interceptor squad','kaldor draigo','brotherhood'],
+     style:"Élite psychique très mobile grâce aux redéploiements, excellente en frappes ciblées.",
+     forces:['Mobilité stratégique (redéploiements)','Bons profils défensifs','Pression constante sur objectifs'],
+     faiblesses:['Peu de figurines','Tir de masse limité','Sensible à la saturation'],
+     contrePhilo:"Contrôler les zones d'arrivée : écranter largement, limiter les fenêtres de téléportation et échanger à votre avantage."},
+    {name:'Adeptus Mechanicus', keys:['mechanicus','skitarii','kastelan','kataphron','ironstrider','dunecrawler','ruststalker','sicarian','serberys','sydonian'],
+     style:"Armée de tir à synergies : buffs d'armée, lignes de Skitarii et constructions lourdes.",
+     forces:['Volume de tir qualitatif','Synergies d\'auras et d\'ordres','Bon scoring d\'infanterie légère'],
+     faiblesses:['Fragilité des lignes','Mêlée faible','Dépendance aux personnages-buffs'],
+     contrePhilo:"Décapiter les buffs : éliminer les personnages de soutien, puis balayer des lignes devenues bien moins efficaces."},
+    {name:'Imperial Knights', keys:['imperial knight','questoris','armiger','canis rex','knight paladin','knight errant','knight crusader','helverin','warglaive'],
+     style:"Poignée de marcheurs géants : puissance de feu et mêlée colossales, très peu d'activations.",
+     forces:['Profils géants très létaux','Résilience brute élevée','Projection de menace immédiate'],
+     faiblesses:['Très peu d\'unités pour le scoring','Vulnérable aux armes antichar dédiées','Terrain difficile à exploiter'],
+     contrePhilo:"Jouer les objectifs et l'usure : concentrer l'antichar sur un châssis à la fois, utiliser les écrans pour bloquer les charges."},
+    {name:'Chaos Space Marines', keys:['chaos space marine','heretic astartes','legionnaire','havocs','obliterator','abaddon','black legion','night lords','iron warriors','word bearers','alpha legion','forgefiend','venomcrawler'],
+     style:"Miroir corrompu des Astartes : polyvalence, pactes et unités spécialisées agressives.",
+     forces:['Polyvalence et flexibilité','Bonnes unités de frappe','Outils pour chaque phase'],
+     faiblesses:['Nombre limité de figurines','Synergies demandant du séquencement','Scoring parfois tendu'],
+     contrePhilo:"Casser le tempo : neutraliser les vecteurs de frappe avant qu'ils n'engagent, et punir le faible volume sur les objectifs."},
+    {name:'Death Guard', keys:['death guard','plague marine','blightlord','deathshroud','mortarion','typhus','plagueburst','bloat-drone','myphitic'],
+     style:"Avancée inexorable : infanterie très résistante, auras débilitantes, guerre d'usure.",
+     forces:['Résilience exceptionnelle','Auras affaiblissant l\'ennemi','Excellente tenue d\'objectifs centraux'],
+     faiblesses:['Lenteur générale','Projection longue distance limitée','Peut subir le jeu de cartes rapide'],
+     contrePhilo:"Refuser l'usure : jouer la mobilité, marquer sur les flancs et ne jamais s'engluer dans leur zone d'aura."},
+    {name:'Thousand Sons', keys:['thousand sons','rubric marine','scarab occult','magnus','ahriman','tzaangor','mutalith'],
+     style:"Élite psychique : puissance de feu mystique concentrée et manipulation du champ de bataille.",
+     forces:['Tir qualitatif à dégâts mentaux','Personnages psychiques puissants','Bonne résilience d\'élite'],
+     faiblesses:['Peu de figurines','Dépendance aux personnages clés','Saturation adverse problématique'],
+     contrePhilo:"Chasser les personnages : sans leurs vecteurs psychiques, la liste perd l'essentiel de sa valeur ajoutée."},
+    {name:'World Eaters', keys:['world eater','khorne berzerker','eightbound','angron','jakhal','lord invocatus'],
+     style:"Mêlée pure et agression immédiate : tout converge vers la charge dévastatrice.",
+     forces:['Mêlée parmi les plus violentes du jeu','Pression dès le tour 1-2','Résilience correcte en avance'],
+     faiblesses:['Tir quasi inexistant','Prévisibilité du plan de jeu','Vulnérable au kiting et aux écrans'],
+     contrePhilo:"Écranter, reculer, saigner : sacrifier des unités jetables pour absorber les charges, puis contre-attaquer les unités engluées."},
+    {name:'Chaos Daemons', keys:['daemon','bloodletter','plaguebearer','daemonette','pink horror','bloodthirster','great unclean one','keeper of secrets','lord of change','skarbrand','belakor','be\'lakor','nurgling','flamer of tzeentch','screamer'],
+     style:"Horreurs surnaturelles : grands démons terrifiants soutenus par des nuées, pression psychologique sur la table.",
+     forces:['Grands démons très puissants','Bonne présence sur le terrain','Résiliences invulnérables fiables'],
+     faiblesses:['Tir limité','Dépendance aux grosses pièces','Sensible aux armes à forte cadence qualitative'],
+     contrePhilo:"Isoler et abattre les grands démons un par un à distance ; les nuées seules ne gagnent pas la partie."},
+    {name:'Necrons', keys:['necron','warrior phalanx','immortal','lychguard','skorpekh','canoptek','monolith','doomsday','c\'tan','ctan','szarekh','silent king','reanimation','wraith','tomb blade'],
+     style:"Légions implacables : blocs d'infanterie qui se relèvent, soutenus par des constructions et des C'tan.",
+     forces:['Régénération des pertes','Blocs d\'objectifs très tenaces','Grosses pièces difficiles à tuer'],
+     faiblesses:['Mobilité moyenne','Mêlée d\'élite limitée','Dégâts parfois insuffisants contre blindés lourds'],
+     contrePhilo:"Annihiler les unités entièrement : toute unité laissée à moitié détruite reviendra. Concentrer le feu jusqu'à extinction."},
+    {name:'Orks', keys:['ork','boyz','nobz','warboss','meganobz','trukk','battlewagon','squighog','beast snagga','stormboyz','gretchin','deff dread','killa kan','ghazghkull','waaagh'],
+     style:"Masse verte déferlante : volume écrasant de corps et de dés, pics de puissance en charge.",
+     forces:['Volume de figurines énorme','Mêlée de masse redoutable','Résilience par le nombre'],
+     faiblesses:['Tir imprécis','Sauvegardes faibles','Dépendance au tour de charge'],
+     contrePhilo:"Gérer les vagues : échelonner les écrans, concentrer l'anti-masse et ne jamais laisser la charge multiple se produire."},
+    {name:'Tyranids', keys:['tyranid','termagant','hormagaunt','carnifex','hive tyrant','norn','genestealer','zoanthrope','neurothrope','exocrine','tyrannofex','gargoyle','ripper','biovore','lictor'],
+     style:"Essaim adaptatif : nuées innombrables guidées par des monstres synaptiques.",
+     forces:['Présence de table massive','Monstres de soutien puissants','Scoring par volume'],
+     faiblesses:['Nuées fragiles individuellement','Dépendance aux synapses','Antichar concentré sur peu d\'unités'],
+     contrePhilo:"Rompre la chaîne synaptique : abattre les monstres-relais, puis nettoyer méthodiquement les nuées privées de coordination."},
+    {name:'Genestealer Cults', keys:['genestealer cult','neophyte','acolyte','aberrant','magus','primus','patriarch','goliath','ridgerunner','atalan'],
+     style:"Insurrection souterraine : embuscades, apparitions et guérilla d'objectifs.",
+     forces:['Redéploiements et embuscades','Excellent scoring opportuniste','Imprévisibilité du placement'],
+     faiblesses:['Fragilité générale extrême','Dégâts bruts limités','Punition sévère en combat frontal'],
+     contrePhilo:"Écranter chaque pouce : sans zone d'arrivée libre, l'embuscade s'effondre et la fragilité fait le reste."},
+    {name:'Aeldari (Craftworlds)', keys:['aeldari','eldar','guardian','wraithguard','wraithlord','avatar','farseer','warlock','fire dragon','howling banshee','dire avenger','wave serpent','falcon','war walker','windrider','swooping hawk','striking scorpion'],
+     style:"Vitesse et précision chirurgicale : unités spécialisées excellentes dans leur rôle unique.",
+     forces:['Mobilité de pointe','Spécialistes très efficaces','Capacité de frappe alpha'],
+     faiblesses:['Fragilité quasi générale','Peu de marge d\'erreur','Attrition défavorable'],
+     contrePhilo:"Forcer l'échange : chaque unité éliminée est irremplaçable. Saturer plutôt que viser juste, et punir toute avance exposée."},
+    {name:'Drukhari', keys:['drukhari','dark eldar','kabalite','wych','incubi','raider','ravager','venom','archon','succubus','haemonculus','talos','scourge','hellion','reaver'],
+     style:"Raids éclairs depuis des transports rapides : tout est question de tempo et de fenêtres d'attaque.",
+     forces:['Vitesse extrême','Puissance de frappe en sortie de transport','Scoring très agile'],
+     faiblesses:['Fragilité du papier','Transports = points faibles critiques','Mauvaise défense statique'],
+     contrePhilo:"Tirer sur les transports d'abord : une fois à pied, l'armée perd tempo et survivabilité. Garder des réserves de contre-charge."},
+    {name:'Leagues of Votann', keys:['votann','hearthkyn','einhyr','hekaton','sagitaur','cthonian','brokhyr','kahl','hernkyn'],
+     style:"Infanterie dure et tir méthodique : marquage des cibles et élimination systématique.",
+     forces:['Infanterie très résistante','Tir efficace sur cibles marquées','Bonne tenue d\'objectifs'],
+     faiblesses:['Mobilité moyenne','Volume d\'unités limité','Montée en puissance progressive'],
+     contrePhilo:"Frapper vite avant la montée en puissance du marquage, et jouer la mobilité pour éviter les zones de feu établies."},
+    {name:"T'au Empire", keys:['tau','t\'au','fire warrior','crisis','riptide','broadside','hammerhead','stormsurge','pathfinder','stealth suit','ghostkeel','breacher','devilfish','commander'],
+     style:"Suprématie du tir coordonné : marquage des cibles et déluge de feu à moyenne-longue portée.",
+     forces:['Puissance de feu majeure','Synergies de visée','Bonnes options mobiles (exosquelettes)'],
+     faiblesses:['Mêlée très faible','Dépendance aux synergies de tir','Fragile une fois engagé'],
+     contrePhilo:"Engager la mêlée au plus vite : chaque unité verrouillée au corps à corps est neutralisée. Avancer sous couvert, multiplier les menaces."}
+  ],
+  aos: [
+    {name:'Stormcast Eternals', keys:['stormcast','liberator','annihilator','vindictor','praetor','lord-imperatant','knight-','vanquisher','prosecutor','stormdrake','dracoth','yndrasta'],
+     style:"Élite céleste : peu d'unités, toutes solides, avec des frappes depuis les cieux.",
+     forces:['Profils d\'élite fiables','Déploiements en profondeur','Polyvalence'],
+     faiblesses:['Peu d\'activations','Scoring large difficile','Coût des pertes élevé'],
+     contrePhilo:"Étirer la table : multiplier les objectifs tenus, écranter les zones d'arrivée et échanger au nombre."},
+    {name:'Cities of Sigmar', keys:['cities of sigmar','freeguild','steam tank','ironweld','cavalier','fusilier','pontifex','alchemite','dark elve','duardin warden'],
+     style:"Armée combinée : lignes d'infanterie, artillerie et cavalerie sous commandement coordonné.",
+     forces:['Volume et polyvalence','Artillerie de soutien','Ordres tactiques'],
+     faiblesses:['Profils individuels moyens','Mobilité hétérogène','Dépendance aux héros'],
+     contrePhilo:"Cibler les officiers et l'artillerie, puis démanteler des lignes privées de coordination."},
+    {name:'Fyreslayers', keys:['fyreslayer','vulkite','hearthguard','auric','magmadroth','runefather','runeson','battlesmith'],
+     style:"Infanterie naine quasi inarrêtable sur objectifs, courte portée mais ténacité extrême.",
+     forces:['Ténacité exceptionnelle','Mêlée d\'usure solide','Contrôle d\'objectifs central'],
+     faiblesses:['Lenteur marquée','Quasi aucun tir','Projection limitée'],
+     contrePhilo:"Ne jamais jouer leur jeu : ignorer le bloc central, marquer sur les flancs et user à distance."},
+    {name:'Kharadron Overlords', keys:['kharadron','arkanaut','skywarden','endrinrigger','frigate','ironclad','gunhauler','admiral','khemist'],
+     style:"Flotte aérienne : mobilité totale, tir concentré et extraction après frappe.",
+     forces:['Mobilité aérienne inégalée','Puissance de feu ciblée','Capacité hit-and-run'],
+     faiblesses:['Fragilité au contact','Peu de corps pour tenir','Dépendance aux navires'],
+     contrePhilo:"Abattre les navires en priorité : l'équipage au sol perd toute la mécanique de la liste."},
+    {name:'Sylvaneth', keys:['sylvaneth','dryad','treelord','kurnoth','alarielle','branchwraith','spiterider','revenant','durthu'],
+     style:"Esprits de la forêt : téléportations via les bois, frappes ciblées et contrôle du terrain.",
+     forces:['Mobilité par les bois','Frappes chirurgicales','Contrôle de zones'],
+     faiblesses:['Dépendance aux bois posés','Fragilité hors couvert','Attrition défavorable'],
+     contrePhilo:"Occuper les zones de sortie des bois et détruire les vecteurs de frappe dès qu'ils apparaissent."},
+    {name:'Lumineth Realm-lords', keys:['lumineth','vanari','auralan','sentinel','dawnrider','alarith','stoneguard','teclis','sevireth','hurakan'],
+     style:"Précision aelfe : tir qualitatif, magie dominante et unités disciplinées.",
+     forces:['Magie de haut niveau','Tir précis à longue portée','Infanterie disciplinée'],
+     faiblesses:['Résilience moyenne','Coût élevé des pièces maîtresses','Volume limité'],
+     contrePhilo:"Saturer plutôt que dueller : noyer la qualité sous le nombre et neutraliser les mages en priorité."},
+    {name:'Daughters of Khaine', keys:['daughters of khaine','witch aelve','sister of slaughter','morathi','melusai','khinerai','hag queen','bloodwrack','cauldron'],
+     style:"Tempête de lames : vitesse, volume d'attaques et montée en puissance au fil des tours.",
+     forces:['Mêlée à très haut volume','Vitesse d\'engagement','Montée en puissance progressive'],
+     faiblesses:['Très fragile','Dépendance aux buffs de héros','Punition sévère si contré tôt'],
+     contrePhilo:"Frapper tôt et fort : la liste est la plus faible aux premiers tours, avant ses montées en puissance."},
+    {name:'Idoneth Deepkin', keys:['idoneth','namarti','thrall','reaver','akhelian','eidolon','leviadon','morrsarr','ishlaen','soulscryer'],
+     style:"Raids des profondeurs : marées changeant les règles d'engagement, cavalerie d'anguilles fulgurante.",
+     forces:['Tempo dicté par les marées','Cavalerie de frappe rapide','Fenêtres d\'invulnérabilité relative'],
+     faiblesses:['Infanterie de base fragile','Dépendance au séquencement','Attrition défavorable'],
+     contrePhilo:"Survivre au tour de frappe clé, puis contre-attaquer pendant leurs tours faibles."},
+    {name:'Seraphon', keys:['seraphon','saurus','skink','slann','kroxigor','carnosaur','bastiladon','terradon','ripperdactyl','stegadon'],
+     style:"Légions dinosauriennes : blocs tenaces, monstres de soutien et magie des Anciens.",
+     forces:['Blocs d\'objectifs solides','Magie de soutien','Monstres polyvalents'],
+     faiblesses:['Vitesse moyenne','Dépendance aux héros-mages','Dégâts parfois diffus'],
+     contrePhilo:"Neutraliser les relais magiques et jouer la mobilité autour des blocs lents."},
+    {name:'Slaves to Darkness', keys:['slaves to darkness','chaos warrior','chaos knight','varanguard','archaon','chosen','chaos chariot','daemon prince','marauder'],
+     style:"Marteau du Chaos : infanterie lourde, cavalerie de choc et seigneurs puissants.",
+     forces:['Profils lourds résistants','Mêlée de choc','Héros majeurs'],
+     faiblesses:['Lenteur relative','Peu de tir','Volume limité'],
+     contrePhilo:"Kiter les blocs lourds, marquer au large et concentrer les dégâts sur une cible à la fois."},
+    {name:'Blades of Khorne', keys:['khorne','bloodbound','blood warrior','bloodreaver','skarr','bloodthirster du','wrathmonger','skullreaper','slaughterpriest'],
+     style:"Agression permanente : tout est tourné vers la charge et la collecte de la fureur.",
+     forces:['Pression de mêlée constante','Ressources de rage exploitables','Bonnes pièces de frappe'],
+     faiblesses:['Aucun tir','Prévisibilité','Sensible au contrôle de distance'],
+     contrePhilo:"Contrôler la distance d'engagement : écrans sacrificiels, replis, et contre-charges sur unités isolées."},
+    {name:'Disciples of Tzeentch', keys:['tzeentch','pink horror','blue horror','kairic','tzaangor','flamers','screamers','magister','gaunt summoner','curseling'],
+     style:"Toile de sorcellerie : magie dominante, nuées changeantes et dégâts mystiques.",
+     forces:['Magie parmi les meilleures','Nuées régénérantes','Dégâts à distance mystiques'],
+     faiblesses:['Mêlée faible','Fragilité des lignes','Dépendance aux sorciers'],
+     contrePhilo:"Engager vite la mêlée et chasser les sorciers : sans magie, la liste s'effondre."},
+    {name:'Maggotkin of Nurgle', keys:['nurgle','plaguebearer','putrid blightking','great unclean','rotbringer','pusgoyle','blight','festus','epidemic'],
+     style:"Pourriture inexorable : résilience extrême, affaiblissement de l'ennemi, avancée méthodique.",
+     forces:['Résilience de pointe','Auras débilitantes','Contrôle du centre'],
+     faiblesses:['Lenteur générale','Projection limitée','Vulnérable au jeu de cartes'],
+     contrePhilo:"Jouer large et rapide : refuser le centre, marquer sur les bords, ne jamais s'engluer."},
+    {name:'Hedonites of Slaanesh', keys:['slaanesh','hedonite','blissbarb','myrmidesh','slickblade','sigvald','glutos','shardspeaker','daemonette du chaos'],
+     style:"Vitesse et dépravation : engagements fulgurants, affaiblissement par la tentation.",
+     forces:['Vitesse supérieure','Volume d\'attaques','Mécaniques de débuff'],
+     faiblesses:['Grande fragilité','Attrition défavorable','Dépendance au premier engagement'],
+     contrePhilo:"Encaisser la première vague derrière des écrans, puis balayer des unités de verre exposées."},
+    {name:'Skaven', keys:['skaven','clanrat','stormvermin','grey seer','warp lightning','stormfiend','ratling','jezzail','plague monk','verminlord','doomwheel'],
+     style:"Marée vermineuse : masse sacrifiable, machines imprévisibles et technologies instables.",
+     forces:['Volume écrasant','Machines à haut risque/haut rendement','Sacrifices tactiques illimités'],
+     faiblesses:['Moral et fiabilité aléatoires','Fragilité individuelle totale','Dépendance aux héros-relais'],
+     contrePhilo:"Tuer les généraux et relais : la masse sans coordination se marche dessus. Anti-masse en priorité."},
+    {name:'Nighthaunt', keys:['nighthaunt','chainrasp','grimghast','bladegheist','spirit host','knight of shrouds','lady olynder','reikenor','hexwraith'],
+     style:"Procession spectrale : sauvegardes éthérées ignorant la qualité des armes adverses, vagues revenantes.",
+     forces:['Défense éthérée constante','Retours d\'unités','Mobilité de vol'],
+     faiblesses:['Dégâts bruts moyens','Dépendance aux héros','Attrition sur la durée'],
+     contrePhilo:"Privilégier le volume d'attaques à la qualité, et bannir les héros qui rappellent les vagues."},
+    {name:'Ossiarch Bonereapers', keys:['ossiarch','mortek','kavalos','katakros','necropolis','immortis','harvester','boneshaper','deathrider'],
+     style:"Légions d'os inarrêtables : discipline parfaite, blocs quasi indestructibles, points de commandement propres.",
+     forces:['Blocs défensifs d\'élite','Ressource de commandement autonome','Tenue d\'objectifs suprême'],
+     faiblesses:['Lenteur','Faible projection','Peu d\'unités'],
+     contrePhilo:"Ne pas taper dans le mur : contourner, isoler les soutiens qui réparent, jouer la mission."},
+    {name:'Soulblight Gravelords', keys:['soulblight','skeleton warrior','zombie','deathrattle','vampire lord','blood knight','vengorian','wight king','terrorgheist','zombie dragon','mannfred','neferata'],
+     style:"Morts-nombreux et seigneurs vampires : vagues récursives encadrées par des élites létales.",
+     forces:['Récursion des troupes','Héros vampires puissants','Présence de table'],
+     faiblesses:['Troupes faibles individuellement','Dépendance aux héros','Mobilité moyenne'],
+     contrePhilo:"Détruire les héros nécromants : sans eux, les vagues cessent de revenir."},
+    {name:'Flesh-eater Courts', keys:['flesh-eater','crypt ghoul','crypt horror','abhorrant','archregent','ghoul king','varghulf','terrorgheist de la cour'],
+     style:"Cour délirante : masse de goules boostées par la folie royale, pics d'activation redoutables.",
+     forces:['Masse récursive','Buffs royaux puissants','Pression continue'],
+     faiblesses:['Fragilité des goules','Dépendance totale aux héros','Peu de tir'],
+     contrePhilo:"Décapiter la cour : chaque roi ou régent éliminé fait retomber la masse en poussière."},
+    {name:'Orruk Warclans (Ironjawz/Kruleboyz)', keys:['ironjawz','kruleboyz','orruk','brute','ardboy','gutrippa','megaboss','gordrakk','sludgeraker','maw-krusha','hobgrot','ironjaw'],
+     style:"Brutalité verte : charges dévastatrices (Ironjawz) ou ruse venimeuse (Kruleboyz).",
+     forces:['Mêlée d\'impact majeure','Vagues coordonnées','Héros-monstres dangereux'],
+     faiblesses:['Sauvegardes moyennes','Tir limité','Dépendance au momentum'],
+     contrePhilo:"Casser l'élan : absorber la première charge sur des écrans et contre-attaquer avant la seconde vague."},
+    {name:'Gloomspite Gitz', keys:['gloomspite','grot','squig','loonboss','mangler','skragrott','stabbas','shootas','troggoth','dankhold','rockgut'],
+     style:"Lune Mauvaise : marées de grots et de squigs, troggoths régénérants, chaos opportuniste.",
+     forces:['Volume énorme','Troggoths tenaces','Imprévisibilité'],
+     faiblesses:['Fiabilité très variable','Moral fragile','Qualité individuelle faible'],
+     contrePhilo:"Éliminer les unités régénérantes ENTIÈREMENT et laisser le moral disperser la masse restante."},
+    {name:'Sons of Behemat', keys:['behemat','mega-gargant','gargant','kraken-eater','warstomper','gatebreaker','bonegrinder','mancrusher'],
+     style:"Poignée de géants : chaque figurine est une armée, contrôle d'objectifs par écrasement.",
+     forces:['Puissance brute colossale','Comptent pour beaucoup sur objectifs','Impossibles à ignorer'],
+     faiblesses:['Très peu d\'activations','Cibles évidentes','Dégradation progressive'],
+     contrePhilo:"Concentrer TOUT sur un géant à la fois et jouer la mission pendant qu'ils écrasent du vide."},
+    {name:'Ogor Mawtribes', keys:['ogor','mawtribe','glutton','irongut','leadbelcher','tyrant','frostlord','stonehorn','thundertusk','mournfang','gnoblar'],
+     style:"Faim en marche : charges massives de ventres et de cavalerie monstrueuse.",
+     forces:['Charges d\'impact dévastatrices','Profils robustes','Pression immédiate'],
+     faiblesses:['Peu de figurines','Sauvegardes moyennes','Faible tir'],
+     contrePhilo:"Refuser la charge frontale : écrans, replis successifs, et feu concentré sur la cavalerie monstrueuse."}
+  ]
+};
+
+/* Dictionnaire de rôles (FR + EN). Catégories :
+   antichar, antihorde, melee, tough, fast, scoring, leader, psychic */
+const ROLE_KEYS = {
+  antichar: ['lascannon','canon laser','melta','fuseur','multi-melta','multifuseur','railgun','rail ','haywire','lance de','dark lance','blaster','canon à distorsion','distorsion','brightlance','lance éclatante','missile krak','krak','canon d\'assaut lourd','volcano','turbo-laser','canon magma','exorcist missile','canon sismique','anti-tank','antichar','harpon','canon jumelé perforant','gauss destructor','canon à induction','ion lourd','fusion'],
+  antihorde: ['flamer','lance-flammes','heavy bolter','bolter lourd','gatling','minigun','canon rotatif','shuriken','catapulte shuriken','frag','blast','déflagration','mortier','mortar','grenade launcher','lance-grenades','burst cannon','canon rafale','stubber','mitrailleuse','autocannon','autocanon','canon automatique','bombardier','artillerie','battle cannon','canon de bataille','scatter','torrent','warpflame','volkite'],
+  melee: ['chainsword','épée tronçonneuse','power fist','poing énergétique','thunder hammer','marteau tonnerre','claw','griffe','talon','glaive','halberd','hallebarde','greatblade','épée','sword','axe','hache','maul','masse','eviscerator','éviscérateur','crozius','lames','blades','corps à corps','mêlée','melee','fangs','crocs','mandibles','pince','scythe','faux','warpick','pioche'],
+  tough: ['terminator','gravis','dreadnought','land raider','tank','char ','blindé','monolith','monolithe','knight','chevalier','titan','stonehorn','mega-gargant','gargant','monstre','monster','behemoth','invulnérable','invul','bouclier','shield','aegis','storm shield','artificer','thématique 2+','mortarion','magnus','greater daemon','grand démon','c\'tan','ctan','stegadon','leviadon','treelord','magmadroth','maw-krusha','zombie dragon','terrorgheist','steam tank','ironclad','immortis','varanguard','bullgryn','custodian','paladin'],
+  fast: ['jump pack','réacteur dorsal','bike','moto','jetbike','speeder','land speeder','cavalry','cavalerie','cavalier','charger','vertus','outrider','reaver','hellion','scourge','ailes','winged','fly','vol','voleur','gargoyle','terradon','ripperdactyl','khinerai','prosecutor','stormdrake','pusgoyle','slickblade','seeker','squighog','mournfang','deathrider','kavalos','morrsarr','ishlaen','dawnrider','spiterider','hexwraith','transport','rhino','raider','venom','trukk','chimera','wave serpent','devilfish','frigate','gunhauler','sentinel','ridgerunner','sagitaur'],
+  scoring: ['intercessor','guardsmen','garde ','cadian','catachan','neophyte','cultist','cultiste','termagant','hormagaunt','boyz','gretchin','grot','clanrat','zombie','squelette','skeleton','chainrasp','mortek','ghoul','goule','warrior','guerrier','vulkite','arkanaut','dryad','skink','namarti','thrall','bloodreaver','marauder','maraudeur','kairic','plaguebearer','daemonette','bloodletter','horror','stabbas','shootas','glutton','hobgrot','gutrippa','ardboy','troupe','battleline','ligne','fire warrior','pathfinder','kabalite','wych','guardian','dire avenger','hearthkyn','vindictor','liberator','freeguild','fusilier','battle sister','sœur de bataille','skitarii','ranger','vanguard','legionnaire','plague marine','rubric','immortal','warriors'],
+  leader: ['captain','capitaine','lieutenant','chaplain','aumônier','librarian','archiviste','commander','commandeur','lord','seigneur','warboss','big mek','overlord','archon','succubus','farseer','autarch','patriarch','magus','primus','abbesse','canoness','chanoinesse','marshal','maréchal','master','maître','prince','roi','king','queen','reine','boss','tyrant','tyran','hive tyrant','broodlord','shadowseer','troupe master','admiral','amiral','runefather','runeson','megaboss','loonboss','frostlord','ghoul king','abhorrant','wight king','vampire lord','knight of shrouds','katakros','morathi','teclis','alarielle','archaon','gordrakk','skragrott','mannfred','neferata','sigvald','glutos','yndrasta','celestine','ghazghkull','szarekh','trajann','draigo','ahriman','angron','mortarion','magnus','abaddon','belakor','be\'lakor','general','général','hero','héros'],
+  psychic: ['psyker','psychique','librarian','archiviste','sorcerer','sorcier','zoanthrope','neurothrope','farseer','warlock','grey seer','wizard','mage','magicien','slann','grey knight','magister','gaunt summoner','curseling','shaman','chamane','seer','prophète','weirdboy','spiritseer','haruspex non','arcane','sort','spell','lore','manifestation','prêtre','priest','slaughterpriest','hag queen','boneshaper','necromancer','nécromancien','branchwraith','shardspeaker','soulscryer','khemist','alchemite']
+};
+
+/* Commentaires garantis cohérents avec la note (générés DEPUIS la note) */
+const COMMENT_BANK = {
+  letalite: {
+    hi:'Capacité de destruction très élevée : la liste dispose d\'outils létaux denses et bien répartis pour menacer tous types de cibles.',
+    mid:'Létalité correcte : la liste peut faire mal, mais devra prioriser ses cibles car ses outils de destruction ne couvrent pas tout.',
+    lo:'Létalité faible : peu d\'outils de destruction identifiés. La liste devra gagner par les objectifs, pas par l\'attrition.'
+  },
+  resistance: {
+    hi:'Excellente résilience : forte proportion d\'unités dures à déloger, la liste peut encaisser et tenir ses positions.',
+    mid:'Résistance correcte : la liste tiendra sous un feu modéré mais souffrira face à une concentration de dégâts dédiée.',
+    lo:'Résilience faible : la liste est fragile et perdra la guerre d\'usure. Elle doit gagner vite ou par évitement.'
+  },
+  mobilite: {
+    hi:'Très bonne mobilité et capacité de scoring : nombreux éléments rapides et/ou unités dédiées aux objectifs.',
+    mid:'Mobilité correcte : la liste peut se repositionner mais sans dominer le tempo du placement.',
+    lo:'Mobilité limitée : la liste subira le placement adverse et aura du mal à répondre aux objectifs éloignés.'
+  },
+  synergie: {
+    hi:'Forte synergie : personnages de soutien, escortes compatibles et règles/stratagèmes de détachement alignés avec la composition de la liste.',
+    mid:'Synergie correcte : quelques personnages et règles utiles à la composition, sans réseau de buffs dense ni détachement pleinement exploité.',
+    lo:'Synergie faible : peu de personnages ou de règles de détachement réellement exploitables par les unités de la liste, qui combattront surtout à leur valeur faciale.'
+  }
+};
+
+function commentFromScore(score, domain) {
+  const bank = COMMENT_BANK[domain];
+  if (score >= 7) return bank.hi;
+  if (score >= 5) return bank.mid;
+  return bank.lo;
+}
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, Math.round(v))); }
+
+/* =========================================================
+   MODULE WAHAPEDIA — import "Export Data" (CSV séparateur "|") + moteur chiffré
+   Tables utilisées : Factions, Datasheets, Datasheets_models, Datasheets_wargear,
+   Datasheets_abilities, Abilities, Datasheets_keywords, Datasheets_models_cost,
+   Datasheets_leader, Last_update. Constantes de calibrage ajustables dans CAL.
+   ========================================================= */
+const WAHA = (() => {
+  const CAL = { kK:400, kL:40, kD:80, kOC:60, thAC:2.0, thAH:5.5, thML:3.5, thTG:11, thSC:6, covMin:0.4 };
+  const BM = { H:{T:9,sv:3,W:12,inv:0}, E:{T:4,sv:3,W:2,inv:0}, Ho:{T:3,sv:5,W:1,inv:0} };
+  const strip = s => String(s||'').replace(/<[^>]*>/g,' ').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/\s+/g,' ').trim();
+  const norm = s => String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/’/g,"'").replace(/[^a-z0-9' ]+/g,' ').replace(/\s+/g,' ').trim();
+  const sing = s => s.replace(/s\b/g,'');
+  const num = v => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
+  const avg = v => { v = String(v||'').toUpperCase().replace(/\s/g,''); const m = v.match(/^(\d*)D(\d+)([+-]\d+)?$/); return m ? (+(m[1]||1))*((+m[2]+1)/2)+(+(m[3]||0)) : num(v); };
+  const pHit = s => { const n = parseInt(s); return isNaN(n) ? 1 : Math.min(1, Math.max(1/6, (7-n)/6)); };
+  const pWound = (S,T) => S>=2*T ? 5/6 : S>T ? 4/6 : S===T ? .5 : S*2<=T ? 1/6 : 1/3;
+  const pFail = (sv,ap,inv,fnp) => { let b = (parseInt(sv)||7) + Math.abs(parseInt(ap)||0); const i = parseInt(inv); if (i && i<b) b = i; let f = b>6 ? 1 : (b-1)/6; if (fnp) f *= (fnp-1)/6; return Math.max(f, .02); };
+  const f1 = n => (Math.round(n*10)/10).toString();
+
+  function parseCSV(text) {
+    const L = String(text||'').replace(/^\uFEFF/,'').split(/\r?\n/);
+    const head = (L.shift()||'').split('|').map(h => h.trim());
+    const need = head.length-1, rows = []; let buf = '';
+    for (const l of L) {
+      buf = buf ? buf+' '+l : l;
+      if (!buf.trim()) { buf = ''; continue; }
+      if ((buf.match(/\|/g)||[]).length < need) continue;   // champ multi-ligne : on recolle
+      const c = buf.split('|'), o = {};
+      head.forEach((h,i) => { if (h) o[h] = (c[i]||'').trim(); });
+      rows.push(o); buf = '';
+    }
+    return rows;
+  }
+
+  function build(F) {
+    const T = n => parseCSV(F[n]);
+    const fac = {}, ab = {}, U = {}, wg = {};
+    T('factions.csv').forEach(r => fac[r.id] = r.name);
+    T('abilities.csv').forEach(r => ab[r.id] = { n:r.name, d:strip(r.description) });
+    T('datasheets.csv').forEach(r => { if (r.virtual !== 'true') U[r.id] = { id:r.id, n:r.name, nl:norm(r.name), f:fac[r.faction_id]||'', role:r.role||'', mod:[], wp:[], kw:[], ab:[], fnp:0, cost:[], leads:[] }; });
+    T('datasheets_models.csv').forEach(r => { const u = U[r.datasheet_id]; if (u) u.mod.push({ T:num(r.T), Sv:r.Sv, inv:r.inv_sv, W:num(r.W)||1, OC:num(r.OC), M:num(r.M) }); });
+    T('datasheets_wargear.csv').forEach(r => {          // 1 seul profil (le premier) par ligne d'arme
+      const u = U[r.datasheet_id]; if (!u) return;
+      const k = r.datasheet_id+'|'+r.line, lw = num(r.line_in_wargear)||1;
+      if (wg[k] && wg[k].lw <= lw) return;
+      const d = strip(r.description).toLowerCase();
+      wg[k] = { lw, u, w:{ n:r.name, t:/melee/i.test(r.type)?'M':'R', a:avg(r.A), h:/torrent/.test(d)?1:pHit(r.BS_WS), s:num(r.S)||4, ap:r.AP, d:avg(r.D)||1,
+        f:(/lethal hits/.test(d)?1.1:1)*(/sustained hits/.test(d)?1.12:1)*(/devastating wounds/.test(d)?1.08:1), bl:/blast/.test(d) } };
+    });
+    Object.values(wg).forEach(x => x.u.wp.push(x.w));
+    T('datasheets_abilities.csv').forEach(r => {
+      const u = U[r.datasheet_id]; if (!u) return;
+      const a = r.ability_id && ab[r.ability_id], n = (a ? a.n : r.name) || '';
+      u.ab.push(norm(n));
+      const m = (n+' '+(r.parameter||'')).match(/feel no pain\s*(\d)\+/i); if (m) u.fnp = Math.max(u.fnp, +m[1]);
+    });
+    T('datasheets_keywords.csv').forEach(r => { const u = U[r.datasheet_id]; if (u) u.kw.push(norm(r.keyword)); });
+    T('datasheets_models_cost.csv').forEach(r => { const u = U[r.datasheet_id]; if (u) u.cost.push({ c:num(r.cost), n:parseInt((String(r.description).match(/(\d+)\s*model/i)||String(r.description).match(/\d+/)||[1])[0]) || 1 }); });
+    T('datasheets_leader.csv').forEach(r => { const u = U[r.leader_id]; if (u) u.leads.push(r.attached_id); });
+    const D = {}, cut = (s,n) => strip(s).slice(0,n);
+    T('detachments.csv').forEach(r => D[r.id] = { id:r.id, n:r.name, nl:norm(r.name), f:fac[r.faction_id]||'', fd:r.force_disposition||'', dp:r.dp||'', st:[], ab:[], en:[] });
+    T('stratagems.csv').forEach(r => { const d = D[r.detachment_id]; if (d) d.st.push({ n:r.name, cp:r.cp_cost, turn:r.turn, ph:r.phase, d:cut(r.description,900) }); });
+    T('detachment_abilities.csv').forEach(r => { const d = D[r.detachment_id]; if (d) d.ab.push({ n:r.name, d:cut(r.description,600) }); });
+    T('enhancements.csv').forEach(r => { const d = D[r.detachment_id]; if (d) d.en.push({ n:r.name, c:r.cost, d:cut(r.description,400) }); });
+    const lu = T('last_update.csv')[0];
+    return { units:Object.values(U).filter(u => u.mod.length), det:Object.values(D), meta:{ last: lu ? lu.last_update : '' } };
+  }
+
+  let IDX = null;
+  const info = db => `${db.units.length} fiches` + (db.meta && db.meta.last ? ` (export du ${db.meta.last})` : '');
+  function setDB(db) {
+    api.db = db; IDX = { n:{}, s:{}, id:{} };
+    db.units.forEach(u => { IDX.id[u.id] = u; (IDX.n[u.nl] = IDX.n[u.nl]||[]).push(u); (IDX.s[sing(u.nl)] = IDX.s[sing(u.nl)]||[]).push(u); });
+    IDX.sn = Object.keys(IDX.s).filter(n => n.length >= 5).sort((a,b) => b.length-a.length);
+  }
+  function find(name, pts) {
+    const q = norm(name), sq = sing(q); if (q.length < 3) return null;
+    let c = IDX.n[q] || IDX.s[sq];
+    if (!c) { const k = IDX.sn.find(n => sq.includes(n)); if (k) c = IDX.s[k]; }
+    if (!c && sq.length >= 5) { const k = IDX.sn.slice().reverse().find(n => n.includes(sq)); if (k) c = IDX.s[k]; }
+    if (!c) return null;
+    return c.length > 1 ? (c.find(u => u.cost.some(x => x.c === pts)) || c[0]) : c[0];
+  }
+
+  const BMP = { H:150/12, E:20/2, Ho:8 };   // pts adverses détruits par point de dégât : char lourd (150 pts/12 PV), élite (20 pts/2 PV), horde (8 pts/1 PV)
+  const costRow = (d, pts) => { const rows = d.cost.filter(x => x.c > 0); return !rows.length ? { c:0, n:1 } : (rows.find(x => x.c === pts) || rows.reduce((b,x) => Math.abs(x.c-pts) < Math.abs(b.c-pts) ? x : b)); };
+  function metrics(d, pts) {
+    const m = d.mod[0], cr = costRow(d, pts);
+    const n = Math.max(1, cr.c ? Math.round(cr.n*pts/cr.c) : cr.n);   // nb de figurines déduit de la ligne de coût la plus proche, ajusté aux points
+    const totW = m.W*n;
+    const at  = totW / Math.max(pWound(9,m.T)*pFail(m.Sv,2,m.inv,d.fnp)*Math.min(3,m.W), .001);
+    const inf = totW / Math.max(pWound(5,m.T)*pFail(m.Sv,1,m.inv,d.fnp), .001);
+    const out = { R:{H:0,E:0,Ho:0}, M:{H:0,E:0,Ho:0} };
+    for (const t of ['R','M']) {
+      d.wp.filter(w => w.t === t).map(w => { const o = {}; for (const k in BM) { const b = BM[k]; o[k] = w.a*w.h*pWound(w.s,b.T)*pFail(b.sv,w.ap,b.inv)*Math.min(w.d,b.W)*w.f*(k==='Ho'&&w.bl?1.3:1); } return o; })
+        .sort((x,y) => y.E-x.E).slice(0, n === 1 ? 3 : 99)      // figurine seule : ses 3 meilleures armes (les autres sont des options alternatives)
+        .forEach((o,i) => { const k = n === 1 || i > 0 ? 1 : n; for (const b in o) out[t][b] += o[b]*k; });
+    }
+    return { n, W:m.W, T:m.T, sv:m.Sv, inv:m.inv, OC:m.OC, M:m.M, at, inf, out };
+  }
+
+  function rolesOf(d, x, pts) {   // rôles classés par intensité (ratio au seuil), 3 maximum + commandement/psychique
+    const p = pts/100, kw = d.kw.join(' '), ab = d.ab.join(' ');
+    const R = { antichar:(x.out.R.H+x.out.M.H)/p/CAL.thAC, antihorde:x.out.R.Ho/p/CAL.thAH, melee:x.out.M.E/p/CAL.thML, tough:(x.at+x.inf/3)/2/p/CAL.thTG,
+      fast:(x.M >= 10 || /\bfly\b|mounted|beasts/.test(kw) || /deep strike|infiltrators|scouts|teleport/.test(ab)) ? 1.2 : 0,
+      scoring:Math.max(x.OC*x.n/p/CAL.thSC, d.kw.includes('battleline') ? 1.1 : 0) };
+    const r = Object.entries(R).filter(e => e[1] >= 1).sort((a,b) => b[1]-a[1]).slice(0,3).map(e => e[0]), main = r[0] || null;
+    if (d.kw.includes('character')) r.push('leader');
+    if (d.kw.includes('psyker')) r.push('psychic');
+    return { roles:r, main };
+  }
+
+  function analyze(units, totalPts) {
+    if (!IDX) return null;
+    const fp = {}, ids = {}, miss = [], list = [];
+    const t = { kH:0, kE:0, kHo:0, at:0, inf:0, oc:0, fast:0, mv:0 };
+    let cov = 0, nm = 0;
+    units.forEach(u => {
+      u.dx = null; u.dxRoles = null; u.dxMain = null; u.dxTxt = '';
+      const d = find(u.name, u.pts);
+      if (!d || !d.mod.length) { miss.push(u.name); return; }
+      const x = metrics(d, u.pts), rr = rolesOf(d, x, u.pts);
+      const kH = (x.out.R.H+x.out.M.H)*BMP.H, kE = (x.out.R.E+x.out.M.E)*BMP.E, kHo = (x.out.R.Ho+x.out.M.Ho)*BMP.Ho;
+      u.dx = d; u.dxRoles = rr.roles; u.dxMain = rr.main; nm++; cov += u.pts; ids[d.id] = 1; fp[d.f] = (fp[d.f]||0) + u.pts; list.push({ u, d });
+      t.kH += kH; t.kE += kE; t.kHo += kHo; t.at += x.at; t.inf += x.inf; t.oc += x.OC*x.n; t.mv += x.M*u.pts; if (rr.roles.includes('fast')) t.fast += u.pts;
+      u.dxTxt = `[Fiche ${d.n}] T${x.T} Sv${x.sv}${x.inv && x.inv !== '-' ? ' inv '+x.inv : ''} PV${x.W}×${x.n} OC${x.OC} — détruit ≈ ${Math.round(kH)} pts de chars lourds, ${Math.round(kE)} d'élites ou ${Math.round(kHo)} de hordes par round.`;
+    });
+    if (!nm) return { cov:0, nm:0, nTot:units.length, miss, vulns:[], s:{}, txt:'Données Wahapedia chargées mais aucune unité de la liste n\'a été reconnue (vérifiez les noms).' };
+    const k = 1000/cov, kk = { H:t.kH*k, E:t.kE*k, Ho:t.kHo*k }, K = (kk.H+kk.E+kk.Ho)/3, kAbs = (t.kH+t.kE+t.kHo)/3, oc = t.oc*k, fast = t.fast/cov, mv = t.mv/cov;
+    const sat = (x,kk2) => 1 + 9*x/(x+kk2);
+    const chars = list.filter(z => z.d.kw.includes('character'));
+    const paired = chars.filter(z => z.d.leads.some(id => ids[id]));
+    const orphans = chars.filter(z => z.d.leads.length && !z.d.leads.some(id => ids[id]));
+    const s = {
+      letal: sat(K, CAL.kK),
+      resist: sat(((t.at + t.inf/3)/2)*k, CAL.kD),
+      mobil: 1 + 9*(.4*oc/(oc+CAL.kOC) + .3*Math.min(1, fast*2) + .3*Math.max(0, Math.min(1, (mv-5)/7))),
+      syner: Math.min(10, 2 + 1.1*chars.length*1000/cov + 2.5*(chars.length ? paired.length/chars.length : 0))
+    };
+    const vulns = [];
+    if (kk.H < 60) vulns.push(`Antichar insuffisant : ≈ ${Math.round(t.kH)} pts de chars lourds détruits par round seulement`);
+    if (kk.Ho < 200) vulns.push(`Anti-masse faible : ≈ ${Math.round(t.kHo)} pts de hordes détruits par round seulement`);
+    if (oc < 20) vulns.push(`Contrôle d'objectifs faible : ${Math.round(oc)} OC par 1000 pts`);
+    if (orphans.length) vulns.push(`Personnages sans escorte compatible dans la liste : ${orphans.map(z => z.u.name).slice(0,3).join(', ')}`);
+    const top = Object.entries(fp).sort((a,b) => b[1]-a[1])[0], pc = Math.round(cov/totalPts*100);
+    let txt = `Données Wahapedia (${info(api.db)}) : ${nm}/${units.length} unités reconnues, ${pc}% des points. Potentiel de destruction (plafond théorique : tir et mêlée cumulés, sans pertes ni malus) : ≈ ${Math.round(kAbs)} pts adverses détruits par round, soit ${Math.round(kAbs/20)}% d'une armée de 2000 pts (≈ ${(2000/Math.max(kAbs,1)).toFixed(1).replace('.',',')} rounds pour la détruire entièrement) — dont ${Math.round(t.kH)} pts de chars lourds, ${Math.round(t.kE)} d'élites et ${Math.round(t.kHo)} de hordes. Contrôle : ${Math.round(oc)} OC par 1000 pts.`;
+    if (cov/totalPts < CAL.covMin) txt += ' Couverture insuffisante : scores non fusionnés avec les données.';
+    if (miss.length) txt += ` Non reconnues : ${miss.slice(0,5).join(', ')}.`;
+    return { cov: cov/totalPts, nm, nTot:units.length, miss, vulns, s, txt, k:kk, faction: top && top[1]/cov >= .5 ? top[0] : null };
+  }
+
+  function recat(units) {
+    const c = { antichar:0, antihorde:0, melee:0, tough:0, fast:0, scoring:0, leader:0, psychic:0 };
+    units.forEach(u => { if (u.dxRoles) u.roles = u.dxRoles; const w = Math.max(1, u.pts/100); (u.roles||[]).forEach(r => { if (c[r] !== undefined) c[r] += w; }); });
+    return c;
+  }
+
+  function pickFaction(dbName, cur, list) {
+    const a = norm(dbName), m = f => { const b = norm(f.name.split('(')[0]); return b.includes(a) || a.includes(b); };
+    if (cur && m(cur)) return cur;
+    return list.find(m) || cur || { name:dbName, style:'Faction identifiée via les fiches Wahapedia importées.', forces:['Profil établi à partir des données importées'], faiblesses:[], contrePhilo:"Exploiter la lacune principale de la liste en refusant son point fort." };
+  }
+
+  const idb = (mode, fn) => new Promise((res, rej) => {
+    const o = indexedDB.open('warroom', 1);
+    o.onupgradeneeded = () => o.result.createObjectStore('kv');
+    o.onsuccess = () => { const tx = o.result.transaction('kv', mode), r = fn(tx.objectStore('kv')); tx.oncomplete = () => res(r.result); tx.onerror = () => rej(tx.error); };
+    o.onerror = () => rej(o.error);
+  });
+  const api = { db:null, CAL, avg, pHit, pFail, num, strip, idb, BMP, parseCSV, build, setDB, find, analyze, recat, pickFaction, info, norm,
+    save: db => idb('readwrite', s => s.put(db, 'waha')), load: () => idb('readonly', s => s.get('waha')), clear: () => idb('readwrite', s => s.delete('waha')) };
+  return api;
+})();
+
+/* =========================================================
+   MODULE RÈGLES — 40k : stratagèmes / aptitudes / améliorations des détachements joués (CSV Wahapedia)
+                   AoS : aptitudes clés + règles de sous-faction (pack JSON local, cf. UI)
+   ========================================================= */
+const RULES = (() => {
+  const CATS = {
+    offense:  /re-?roll|\+1 to (the )?(hit|wound)|add 1 to (the )?(hit|wound|attacks)|\brend\b|extra attack|mortal wound|lethal hits|sustained hits|devastating wounds|armour penetration|critical (hit|wound)/g,
+    defense:  /invulnerable|feel no pain|\bward\b|-1 to (the )?(hit|wound)|subtract 1 from the (hit|wound)|benefit of cover|reduced? (by|the damage)|halve|cannot be (targeted|wounded)/g,
+    mobility: /\bmove\b|advance|charge|fall back|retreat|deep strike|teleport|redeploy|reserves|\brun\b|\bfly\b|disengage/g,
+    objectif: /objective|\boc\b|battle-?shock|victory point|command point|\bcp\b|control/g,
+    magie:    /\bspell|\bcast|prayer|chant|unbind|dispel|psychic|\bwizard|\bpriest|\bpsyker/g
+  };
+  const LBL = { offense:'Offensif', defense:'Défensif', mobility:'Mobilité', objectif:'Objectifs / contrôle', magie:'Magie / psychique', autre:'Utilitaire' };
+  const TOK = ['infantry','vehicle','monster','character','mounted','walker','fly','battleline','psyker','titanic','beasts','swarm'];
+  const classify = t => { t = String(t||'').toLowerCase(); let best = 'autre', n = 0; for (const k in CATS) { const c = (t.match(CATS[k])||[]).length; if (c > n) { n = c; best = k; } } return best; };
+  const fitOf = (cats, units) => {
+    const W = units.reduce((a,u) => a + Math.max(1, u.pts/100), 0) || 1, f = v => .4 + .6*Math.min(1, v/W*1.5);
+    return { offense:f((cats.antichar+cats.antihorde+cats.melee)/2), defense:f(cats.tough), mobility:f(cats.fast+cats.scoring/2), objectif:f(cats.scoring+cats.leader), magie:f(cats.psychic*2), autre:.45 };
+  };
+  const cut = (s,n) => { s = String(s||'').trim(); return s.length > n ? s.slice(0,n-1)+'…' : s; };
+  const nrm = s => WAHA.norm(s);
+
+  function an40(raw, units, cats, dx) {
+    const out = { titre:'STRATAGÈMES & DÉTACHEMENT(S) JOUÉ(S)', blocs:[], notes:[] }, db = WAHA.db;
+    if (!db) { out.notes.push('Importez les CSV Wahapedia (Detachments, Stratagems, Detachment_abilities, Enhancements) pour analyser les stratagèmes des détachements.'); return out; }
+    if (!(db.det||[]).length) { out.notes.push('Import sans tables de détachements : ajoutez Detachments.csv, Stratagems.csv, Detachment_abilities.csv et Enhancements.csv.'); return out; }
+    const nr = ' '+nrm(raw)+' ';
+    let found = db.det.filter(d => d.nl.length >= 5 && nr.includes(' '+d.nl+' '));
+    const fac = dx && dx.faction;
+    if (fac && found.some(d => d.f === fac)) found = found.filter(d => d.f === fac);
+    found = found.filter((d,i,a) => a.findIndex(e => e.nl === d.nl && e.f === d.f) === i).slice(0,3);
+    if (!found.length) { out.notes.push('Aucun détachement reconnu dans la liste : le nom du détachement doit y figurer (ex. « Detachment : … »).'); return out; }
+    if (found.length > 1) out.notes.push(`${found.length} détachements détectés : les stratagèmes de chacun sont analysés séparément.`);
+    const fit = fitOf(cats, units), mp = units.filter(u => u.dx).reduce((a,u) => a+u.pts, 0), covOK = !!(dx && dx.cov >= WAHA.CAL.covMin && mp);
+    const synAll = [];
+    found.forEach(d => {
+      const st = d.st.map(s => {
+        const cat = classify(s.d), tg = ((s.d.match(/target:(.*?)(effect:|restrictions:|$)/i)||[,s.d.slice(0,200)])[1]).toLowerCase();
+        const req = TOK.filter(t => tg.includes(t)); let elig = 1;
+        if (req.length) elig = covOK ? units.filter(u => u.dx && req.every(t => u.dx.kw.includes(t))).reduce((a,u) => a+u.pts, 0)/mp : .7;
+        const cp = parseInt(s.cp)||1, score = fit[cat]*elig*(cp<=1 ? 1 : cp===2 ? .8 : .6);
+        return { s, cat, elig, cp, req, score };
+      }).sort((a,b) => b.score-a.score);
+      synAll.push(...st.slice(0,3).map(x => x.score));
+      const top = st.slice(0,5).map(x => ({
+        nom:x.s.n, tag:`${x.cp} CP · ${x.s.ph||'—'} · ${(x.s.turn||'').toLowerCase()}`.replace(/ · $/,''),
+        texte:cut((x.s.d.match(/effect:(.*)/i)||[,x.s.d])[1], 260),
+        note:`${LBL[x.cat]} — synergie ${Math.round(fit[x.cat]*100)}% avec la composition` + (x.req.length ? (covOK ? ` · cible « ${x.req.join(' + ')} » : ${Math.round(x.elig*100)}% des points reconnus` : ` · cible « ${x.req.join(' + ')} » (non évalué)`) : '')
+          + (x.elig < .3 ? ' ⚠ peu d\'unités éligibles' : '')
+      }));
+      const ab = d.ab.map(a => ({ a, cat:classify(a.d) })).sort((x,y) => fit[y.cat]-fit[x.cat]).slice(0,3).map(x => ({ nom:x.a.n, tag:LBL[x.cat], texte:cut(x.a.d,260) }));
+      const en = d.en.map(e => ({ e, cat:classify(e.d), own:nr.includes(' '+nrm(e.n)+' ') })).sort((x,y) => (y.own-x.own) || (fit[y.cat]-fit[x.cat])).slice(0,3)
+        .map(x => ({ nom:x.e.n, tag:`${x.e.c||'?'} pts` + (x.own ? ' · dans la liste ✓' : ''), texte:cut(x.e.d,200), note:LBL[x.cat] }));
+      const dom = Object.entries(st.slice(0,5).reduce((m,x) => (m[x.cat] = (m[x.cat]||0)+1, m), {})).sort((a,b) => b[1]-a[1])[0];
+      const sections = [];
+      if (ab.length) sections.push({ titre:'Aptitude(s) de détachement', items:ab });
+      if (top.length) sections.push({ titre:'Stratagèmes clés pour CETTE liste (classés par pertinence)', items:top });
+      if (en.length) sections.push({ titre:'Améliorations', items:en });
+      out.blocs.push({ titre:d.n, meta:[d.f, d.fd && 'Disposition : '+d.fd, d.dp && d.dp+' DP', `${d.st.length} stratagèmes`, dom && 'Profil : '+LBL[dom[0]].toLowerCase()].filter(Boolean).join(' · '), sections });
+    });
+    if (synAll.length) out.syn = Math.min(1, synAll.reduce((a,b) => a+b, 0)/synAll.length/.8);
+    if (!covOK) out.notes.push('Couverture des fiches insuffisante : l\'éligibilité des stratagèmes aux unités n\'a pas pu être évaluée.');
+    return out;
+  }
+
+  function anAos(raw, units, cats, faction) {
+    const out = { titre:'APTITUDES CLÉS & RÈGLES DE SOUS-FACTION', blocs:[], notes:[] };
+    let pack = AOS.pack; if (!pack) try { pack = (JSON.parse(localStorage.getItem('warroom_aos_pack')||'{}')).aos || null; } catch (e) {}
+    const fit = fitOf(cats, units), nr = ' '+nrm(raw)+' ';
+    const sy = [];
+    const rank = (arr, n) => arr.map(r => ({ r, cat:classify(r.texte) })).sort((a,b) => fit[b.cat]-fit[a.cat]).slice(0,n)
+      .map(x => (sy.push(fit[x.cat]), { nom:x.r.nom, tag:[LBL[x.cat], x.r.phase].filter(Boolean).join(' · '), texte:cut(x.r.texte,300), note:`Synergie ${Math.round(fit[x.cat]*100)}% avec la composition` }));
+    const re = /^\s*(allegiance|alliance|faction|subfaction|sub-faction|sous-faction|battle formation|formation|heroic trait|artefact|artifact|spell lore|prayer lore|manifestation lore|grand strategy|battle tactics?)\s*[:\-–]\s*(.+?)\s*$/i;
+    const declared = raw.split(/\r?\n/).map(l => l.match(re)).filter(Boolean).map(m => ({ label:m[1], val:m[2] }));
+    const flat = (pack && pack.regles) || {};
+    const flatN = Object.fromEntries(Object.entries(flat).map(([k,v]) => [nrm(k), { k, v }]));
+    let fk = null;
+    if (pack && pack.factions) fk = Object.keys(pack.factions).find(k => nr.includes(' '+nrm(k)+' ') || (faction && (nrm(faction.name).includes(nrm(k)) || nrm(k).includes(nrm(faction.name.split('(')[0])))));
+    const F = fk ? pack.factions[fk] : null;
+    if (F && (F.aptitudes||[]).length) out.blocs.push({ titre:'Aptitudes de faction — '+fk, meta:'', sections:[{ titre:'Aptitudes clés (classées par pertinence)', items:rank(F.aptitudes, 5) }] });
+    if (F && F.subfactions) {
+      const subs = Object.keys(F.subfactions).filter(s => nr.includes(' '+nrm(s)+' '));
+      subs.forEach(s => out.blocs.push({ titre:'Sous-faction : '+s, meta:fk, sections:[{ titre:'Règles de sous-faction', items:rank(F.subfactions[s], 5) }] }));
+      if (!subs.length) out.notes.push('Sous-faction non reconnue dans la liste. Disponibles dans le pack : ' + Object.keys(F.subfactions).slice(0,8).join(', ') + '.');
+    }
+    if (declared.length) out.blocs.push({ titre:'Règles déclarées dans la liste', meta:'', sections:[{ titre:'Choix détectés', items:declared.map(d => {
+      const h = flatN[nrm(d.val)], cat = h ? classify(h.v) : null;
+      return { nom:d.val, tag:d.label + (cat ? ' · '+LBL[cat] : ''), texte:h ? cut(h.v,300) : '', note:h ? `Synergie ${Math.round(fit[cat]*100)}% avec la composition` : 'Texte absent du pack : non analysé' };
+    }) }] });
+    if (!pack) out.notes.push('Aucun pack AoS enregistré : seuls les choix déclarés dans la liste sont relevés. Collez un pack JSON (section « Pack règles AoS ») pour analyser aptitudes et règles de sous-faction.');
+    else if (!F) out.notes.push('Faction non trouvée dans le pack AoS.');
+    if (sy.length) out.syn = Math.max(0, Math.min(1, (sy.reduce((a,b) => a+b, 0)/sy.length - .4)/.6));
+    if (!out.blocs.length) out.notes.push('Aucune règle exploitable détectée.');
+    return out;
+  }
+
+  return { analyze:(sys, raw, units, cats, dx, faction) => Object.assign({ mode:sys }, sys === '40k' ? an40(raw, units, cats, dx) : anAos(raw, units, cats, faction)) };
+})();
+
+/* =========================================================
+   MODULE AoS — import CSV Age of Sigmar (séparateur auto : | ; , tab), colonnes reconnues par alias
+   Fichiers reconnus par leur NOM : factions, warscrolls/units, *weapons*, *keywords*, warscroll abilities,
+   tout le reste (abilities, battle traits, subfactions, formations, lores, artefacts...) = tables de règles.
+   Stocké séparément du 40k (IndexedDB, clé « aos »).
+   ========================================================= */
+const AOS = (() => {
+  const CAL = { kL:40, kD:80, kC:60, thAC:3, thAH:6, thML:4, thTG:11, thSC:6 };
+  const key = h => String(h||'').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const g = (r, ...n) => { for (const k of n) if (r[k] !== undefined && r[k] !== '') return r[k]; return ''; };
+  const sing = s => s.replace(/s\b/g, '');
+  function csv(text, dl) {
+    text = String(text||'').replace(/^\uFEFF/, '');
+    const first = text.split(/\r?\n/, 1)[0];
+    dl = dl || ['|', ';', '\t', ','].map(d => [d, first.split(d).length]).sort((a,b) => b[1]-a[1])[0][0];
+    if (dl === '|') return WAHA.parseCSV(text).map(r => Object.fromEntries(Object.entries(r).map(([k,v]) => [key(k), v])));
+    const rows = []; let row = [], cur = '', q = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (q) { if (c === '"') { const nx = text[i+1]; if (nx === '"') { cur += '"'; i++; } else if (nx === undefined || nx === dl || nx === '\n' || nx === '\r') q = false; else cur += c; } else cur += c; }
+      else if (c === '"' && cur === '') q = true;
+      else if (c === dl) { row.push(cur); cur = ''; }
+      else if (c === '\n' || c === '\r') { if (c === '\r' && text[i+1] === '\n') i++; row.push(cur); cur = ''; rows.push(row); row = []; }
+      else cur += c;
+    }
+    if (cur || row.length) { row.push(cur); rows.push(row); }
+    const head = (rows.shift()||[]).map(key);
+    return rows.filter(r => r.some(x => x.trim())).map(r => { const o = {}; head.forEach((h,i) => { if (h) o[h] = (r[i]||'').trim(); }); return o; });
+  }
+
+  function build(F) {
+    const T = { factions:[], ws:[], wp:[], kw:[], ab:[], rules:[] };
+    for (const [fn, txt] of Object.entries(F)) {
+      const b = key(fn.replace(/\.[^.]*$/, ''));
+      const cls = /weapon/.test(b) ? 'wp' : /keyword/.test(b) ? 'kw' : /warscroll|unit/.test(b) ? (/abilit|rule/.test(b) ? 'ab' : 'ws')
+        : (/faction/.test(b) && !/sub|abilit|rule|trait/.test(b)) ? 'factions' : 'rules';
+      csv(txt).forEach(r => { r._f = b; T[cls].push(r); });
+    }
+    const fac = {}, sub = {}, W = {}, Wn = {};
+    T.factions.forEach(r => fac[g(r,'id','factionid')] = g(r,'name','factionname','title'));
+    T.rules.filter(r => /subfaction/.test(r._f)).forEach(r => { const id = g(r,'id','subfactionid'); if (id) sub[id] = g(r,'name','subfactionname','title'); });
+    const facOf = r => fac[g(r,'factionid','faction')] || g(r,'factionname','faction');
+    const subOf = r => sub[g(r,'subfactionid','subfaction')] || g(r,'subfactionname','subfaction','formation','allegiance') || (/subfaction/.test(r._f) ? g(r,'name','title') : '');
+    T.ws.forEach(r => { const n = g(r,'name','title','warscroll'); if (!n) return; const id = g(r,'id','warscrollid') || n;
+      W[id] = Wn[WAHA.norm(n)] = { id, n, nl:WAHA.norm(n), f:facOf(r), pts:WAHA.num(g(r,'points','cost','pts')), mv:WAHA.num(g(r,'move','m')), hp:WAHA.num(g(r,'health','wounds','w'))||1,
+        sv:g(r,'save','sv'), ctl:WAHA.num(g(r,'control','oc')), models:parseInt(g(r,'models','unitsize','size','minsize'))||1, kw:[], ab:[], wp:[], ward:0 }; });
+    const get = k => W[k] || Wn[WAHA.norm(k)];
+    T.wp.forEach(r => { const w = get(g(r,'warscrollid','unitid','warscrollname','warscroll')); if (!w) return;
+      w.wp.push({ n:g(r,'name','weapon'), t:parseInt(g(r,'range')) > 3 ? 'R' : 'M', a:WAHA.avg(g(r,'attacks','atk','a')), h:WAHA.pHit(g(r,'tohit','hit')), wd:WAHA.pHit(g(r,'towound','wound','wnd')), rnd:g(r,'rend','rnd'), d:WAHA.avg(g(r,'damage','dmg','d')) || 1 }); });
+    T.kw.forEach(r => { const w = get(g(r,'warscrollid','unitid','warscroll')); if (w) w.kw.push(WAHA.norm(g(r,'keyword','name'))); });
+    T.ab.forEach(r => { const w = get(g(r,'warscrollid','unitid','warscroll')); if (!w) return; const n = g(r,'name','title'), m = (n+' '+WAHA.strip(g(r,'description','text','effect'))).match(/ward\s*\(?(\d)\+/i);
+      w.ab.push(WAHA.norm(n)); if (m) w.ward = Math.max(w.ward, +m[1]); });
+    const rules = T.rules.map(r => ({ n:g(r,'name','title'), d:WAHA.strip(g(r,'description','text','effect','rules','desc')), f:facOf(r), sub:subOf(r), ph:g(r,'phase','timing'), type:r._f })).filter(r => r.n && r.d);
+    return { ws:Object.values(W).filter(w => w.n), rules, meta:{ files:Object.keys(F).length, rules:rules.length } };
+  }
+
+  const api = { db:null, pack:null, CAL, build };
+  api.setDB = db => {
+    api.db = db; const ix = { n:{}, s:{} };
+    db.ws.forEach(w => { (ix.n[w.nl] = ix.n[w.nl]||[]).push(w); (ix.s[sing(w.nl)] = ix.s[sing(w.nl)]||[]).push(w); });
+    ix.sn = Object.keys(ix.s).filter(n => n.length >= 5).sort((a,b) => b.length-a.length); api.ix = ix;
+    const p = { factions:{}, regles:{} };   // même forme que le pack JSON : réutilisé par l'analyse des règles
+    db.rules.forEach(r => { p.regles[r.n] = r.d; const it = { nom:r.n, texte:r.d, phase:r.ph };
+      if (r.f) { const F = p.factions[r.f] = p.factions[r.f] || { aptitudes:[], subfactions:{} };
+        if (r.sub) (F.subfactions[r.sub] = F.subfactions[r.sub]||[]).push(it); else F.aptitudes.push(it); } });
+    api.pack = db.rules.length ? p : null;
+  };
+  api.info = db => `${db.ws.length} warscrolls · ${db.rules.length} règles`;
+  const find = (name, pts) => { const ix = api.ix, q = WAHA.norm(name), sq = sing(q); if (q.length < 3) return null;
+    let c = ix.n[q] || ix.s[sq];
+    if (!c) { const k = ix.sn.find(n => sq.includes(n)); if (k) c = ix.s[k]; }
+    if (!c && sq.length >= 5) { const k = ix.sn.slice().reverse().find(n => n.includes(sq)); if (k) c = ix.s[k]; }
+    return c ? (c.length > 1 ? (c.find(w => w.pts === pts) || c[0]) : c[0]) : null; };
+
+  api.analyze = (units, totalPts) => {
+    if (!api.db) return null;
+    const { pFail, BMP } = WAHA;
+    const fp = {}, miss = [], t = { kH:0, kE:0, kHo:0, at:0, inf:0, c:0, fast:0, mv:0, heroes:0 };
+    let cov = 0, nm = 0;
+    units.forEach(u => {
+      u.dx = null; u.dxRoles = null; u.dxMain = null; u.dxTxt = '';
+      const w = find(u.name, u.pts); if (!w) { miss.push(u.name); return; }
+      const n = Math.max(1, w.models), p = u.pts/100, th = w.hp*n;
+      const at = th/Math.max(.25*pFail(w.sv,2,0,w.ward)*3, .001), inf = th/Math.max(.25*pFail(w.sv,1,0,w.ward), .001);
+      const o = { R:{H:0,E:0,Ho:0}, M:{H:0,E:0,Ho:0} }; let maxD = 0;
+      for (const ty of ['R','M']) w.wp.filter(x => x.t === ty).map(x => { maxD = Math.max(maxD, x.d);
+        return { H:x.a*x.h*x.wd*pFail(3,x.rnd)*x.d, E:x.a*x.h*x.wd*pFail(4,x.rnd)*x.d, Ho:x.a*x.h*x.wd*pFail(5,x.rnd)*x.d }; })
+        .sort((a,b) => b.E-a.E).slice(0, n === 1 ? 3 : 99).forEach((v,i) => { const k = n === 1 || i > 0 ? 1 : n; for (const b in v) o[ty][b] += v[b]*k; });
+      const kH = (o.R.H+o.M.H)*BMP.H, kE = (o.R.E+o.M.E)*BMP.E, kHo = (o.R.Ho+o.M.Ho)*BMP.Ho, kw = w.kw.join(' '), ab = w.ab.join(' ');
+      const R = { antichar:maxD >= 3 ? (o.R.H+o.M.H)/p/CAL.thAC : 0, antihorde:(o.R.Ho+o.M.Ho)/p/CAL.thAH, melee:o.M.E/p/CAL.thML, tough:(at+inf/3)/2/p/CAL.thTG,
+        fast:(w.mv >= 10 || /\bfly\b/.test(kw) || /teleport|deploy/.test(ab)) ? 1.2 : 0, scoring:w.ctl*n/p/CAL.thSC };
+      const r = Object.entries(R).filter(e => e[1] >= 1).sort((a,b) => b[1]-a[1]).slice(0,3).map(e => e[0]);
+      u.dxMain = r[0] || null;
+      if (/\bhero\b/.test(kw)) { r.push('leader'); t.heroes++; } if (/wizard|priest/.test(kw)) r.push('psychic');
+      u.dx = w; u.dxRoles = r; nm++; cov += u.pts; fp[w.f] = (fp[w.f]||0) + u.pts;
+      t.kH += kH; t.kE += kE; t.kHo += kHo; t.at += at; t.inf += inf; t.c += w.ctl*n; t.mv += w.mv*u.pts; if (r.includes('fast')) t.fast += u.pts;
+      u.dxTxt = `[Warscroll ${w.n}] Mvt ${w.mv} · Santé ${w.hp}×${n} · Sauv ${w.sv||'—'}${w.ward ? ' · Ward '+w.ward+'+' : ''} · Contrôle ${w.ctl} — détruit ≈ ${Math.round(kH)} pts de cibles sauv. 3+, ${Math.round(kE)} de sauv. 4+ ou ${Math.round(kHo)} de sauv. 5+ par round.`;
+    });
+    if (!nm) return { cov:0, nm:0, nTot:units.length, miss, vulns:[], s:{}, txt:'Données AoS chargées mais aucune unité reconnue (vérifiez les noms / fichiers Warscrolls).' };
+    const k = 1000/cov, kk = { H:t.kH*k, E:t.kE*k, Ho:t.kHo*k }, K = (kk.H+kk.E+kk.Ho)/3, kAbs = (t.kH+t.kE+t.kHo)/3, sat = (x,kb) => 1 + 9*x/(x+kb), c = t.c*k, mv = t.mv/cov;
+    const s = { letal:sat(K, WAHA.CAL.kK), resist:sat(((t.at+t.inf/3)/2)*k, CAL.kD),
+      mobil:1 + 9*(.4*c/(c+CAL.kC) + .3*Math.min(1, t.fast/cov*2) + .3*Math.max(0, Math.min(1, (mv-5)/7))), syner:Math.min(10, 2 + 1.2*t.heroes*1000/cov) };
+    const vulns = [];
+    if (kk.H < 60) vulns.push(`Peu d'impact contre les cibles bien sauvegardées (3+) : ≈ ${Math.round(t.kH)} pts détruits par round seulement`);
+    if (c < 15) vulns.push(`Contrôle d'objectifs faible : ${Math.round(c)} de Contrôle par 1000 pts`);
+    const top = Object.entries(fp).sort((a,b) => b[1]-a[1])[0];
+    return { cov:cov/totalPts, nm, nTot:units.length, miss, vulns, s, k:kk, faction: top && top[0] && top[1]/cov >= .5 ? top[0] : null,
+      txt:`Données AoS (${api.info(api.db)}) : ${nm}/${units.length} unités reconnues, ${Math.round(cov/totalPts*100)}% des points. Potentiel de destruction (plafond théorique : tir et mêlée cumulés, sans pertes ni malus) : ≈ ${Math.round(kAbs)} pts adverses détruits par round, soit ${Math.round(kAbs/20)}% d'une armée de 2000 pts (≈ ${(2000/Math.max(kAbs,1)).toFixed(1).replace('.',',')} rounds pour la détruire entièrement) — dont ${Math.round(t.kH)} pts de cibles sauv. 3+, ${Math.round(t.kE)} de sauv. 4+ et ${Math.round(t.kHo)} de sauv. 5+. Contrôle : ${Math.round(c)} par 1000 pts.` + (miss.length ? ` Non reconnues : ${miss.slice(0,5).join(', ')}.` : '') };
+  };
+  api.save = db => WAHA.idb('readwrite', s => s.put(db, 'aos'));
+  api.load = () => WAHA.idb('readonly', s => s.get('aos'));
+  api.clear = () => WAHA.idb('readwrite', s => s.delete('aos'));
+  return api;
+})();
+
+/* Mot de passe des réglages (en dur, local uniquement : jamais synchronisé avec Firestore) */
+const SETTINGS_PASSWORD = 'totototo';
+
+/* ===================== Synchronisation Firestore ===================== */
+const CLOUD = {
+  config: {
+    apiKey: "AIzaSyAcJCsoqczYqHfzm-HGWM_NtAaDfwbZ01g",
+    authDomain: "warroom-3c662.firebaseapp.com",
+    projectId: "warroom-3c662",
+    storageBucket: "warroom-3c662.firebasestorage.app",
+    messagingSenderId: "1046219492493",
+    appId: "1:1046219492493:web:dcbdd15fde656d2f1c26c4",
+    measurementId: "G-VG6YXS8Y48"
+  },
+  COLLECTION: 'warroom_analyses',
+  col: null,
+  init() {
+    if (!window.firebase) return false;
+    if (!firebase.apps.length) firebase.initializeApp(this.config);
+    this.col = firebase.firestore().collection(this.COLLECTION);
+    return true;
+  },
+  // Le rapport est stocké en JSON texte (Firestore refuse les tableaux imbriqués et les undefined)
+  toDoc(h) {
+    return { id: h.id, date: h.date, system: h.system || '', faction: h.faction || '', titre: h.titre || '',
+             rawList: h.rawList || '', reportJson: JSON.stringify(h.report || null) };
+  },
+  fromDoc(d) {
+    try { return { id: d.id, date: d.date, system: d.system, faction: d.faction, titre: d.titre, rawList: d.rawList, report: JSON.parse(d.reportJson) }; }
+    catch (e) { return null; }
+  },
+  async push(h) {
+    if (!this.col) return;
+    try { await this.col.doc(h.id).set(this.toDoc(h)); }
+    catch (e) { console.warn('Firestore : échec de l\'enregistrement', e); }
+  },
+  async remove(ids) {
+    if (!this.col || !ids.length) return;
+    try {
+      for (let i = 0; i < ids.length; i += 400) {
+        const batch = firebase.firestore().batch();
+        ids.slice(i, i + 400).forEach(id => batch.delete(this.col.doc(id)));
+        await batch.commit();
+      }
+    } catch (e) { console.warn('Firestore : échec de la suppression', e); }
+  }
+};
+
+function warRoomApp() {
+  return {
+    gameSystem: '40k',
+    rawList: '',
+    loading: false,
+    exporting: false,
+    error: '',
+    report: null,
+    history: [],
+    showHistory: false,
+    HISTORY_MAX: 30,
+    cloudStatus: '',
+    showSettings: false,
+    settingsUnlocked: false,
+    pwdInput: '',
+    pwdError: '',
+    dataPackRaw: '',
+    dataPackStatus: '',
+    wStatus: '',
+    aStatus: '',
+    aosPackRaw: '',
+    aosPackStatus: '',
+
+    init() {
+      this.gameSystem = localStorage.getItem('warroom_game') || '40k';
+      this.dataPackRaw = localStorage.getItem('warroom_datapack') || '';
+      this.loadHistory();
+      this.startCloudSync();
+      this.aosPackRaw = localStorage.getItem('warroom_aos_pack') || '';
+      AOS.load().then(db => { if (db && db.ws) { AOS.setDB(db); this.aStatus = '✓ ' + AOS.info(db) + ' chargés'; } }).catch(() => {});
+      WAHA.load().then(db => { if (db && db.units) { WAHA.setDB(db); this.wStatus = '✓ ' + WAHA.info(db) + ' chargées'; } }).catch(() => {});
+      this.$watch('gameSystem', v => localStorage.setItem('warroom_game', v));
+    },
+
+    // ---------- Réglages protégés ----------
+    openSettings() {
+      this.settingsUnlocked = false; this.pwdInput = ''; this.pwdError = '';
+      this.showSettings = true;
+      this.$nextTick(() => { if (this.$refs.pwdField) this.$refs.pwdField.focus(); });
+    },
+    closeSettings() {
+      this.showSettings = false; this.settingsUnlocked = false; this.pwdInput = ''; this.pwdError = '';
+    },
+    unlockSettings() {
+      if (this.pwdInput === SETTINGS_PASSWORD) { this.settingsUnlocked = true; this.pwdError = ''; }
+      else { this.pwdError = 'Mot de passe incorrect.'; }
+      this.pwdInput = '';
+    },
+
+    // ---------- Data pack ----------
+    saveDataPack() {
+      try {
+        if (this.dataPackRaw.trim()) {
+          const p = JSON.parse(this.dataPackRaw);
+          if (!p.motscles || typeof p.motscles !== 'object') throw new Error();
+        }
+        localStorage.setItem('warroom_datapack', this.dataPackRaw);
+        this.dataPackStatus = '✓ Pack enregistré';
+      } catch (e) {
+        this.dataPackStatus = '✗ JSON invalide (format attendu : {"motscles":{...}})';
+      }
+    },
+    clearDataPack() {
+      this.dataPackRaw = '';
+      localStorage.removeItem('warroom_datapack');
+      this.dataPackStatus = 'Pack réinitialisé';
+    },
+    getCustomKeys() {
+      try {
+        const p = JSON.parse(localStorage.getItem('warroom_datapack') || '{}');
+        return p.motscles || {};
+      } catch (e) { return {}; }
+    },
+
+    // ---------- Import Wahapedia (Export Data) ----------
+    async importWaha(ev) {
+      const files = Array.from(ev.target.files || []);
+      if (!files.length) return;
+      this.wStatus = 'Lecture des fichiers...';
+      try {
+        const F = {};
+        for (const f of files) F[f.name.toLowerCase().replace(/^.*[\\\/]/, '')] = await f.text();
+        if (!F['datasheets.csv'] || !F['datasheets_models.csv']) throw new Error('Datasheets.csv et Datasheets_models.csv sont indispensables');
+        const db = WAHA.build(F);
+        if (!db.units.length) throw new Error('aucune fiche exploitable (séparateur « | » ?)');
+        await WAHA.save(db); WAHA.setDB(db);
+        const missing = ['datasheets_wargear.csv','datasheets_keywords.csv','datasheets_models_cost.csv','datasheets_abilities.csv','datasheets_leader.csv','detachments.csv','stratagems.csv','detachment_abilities.csv','enhancements.csv'].filter(n => !F[n]);
+        this.wStatus = '✓ ' + WAHA.info(db) + ' importées' + (missing.length ? ' — fichiers absents (analyse partielle) : ' + missing.join(', ') : '');
+      } catch (e) { this.wStatus = '✗ ' + (e.message || e); }
+      ev.target.value = '';
+    },
+    async importAos(ev) {
+      const files = Array.from(ev.target.files || []);
+      if (!files.length) return;
+      this.aStatus = 'Lecture des fichiers...';
+      try {
+        const F = {};
+        for (const f of files) F[f.name.replace(/^.*[\\\/]/, '')] = await f.text();
+        const db = AOS.build(F);
+        if (!db.ws.length && !db.rules.length) throw new Error('rien d\'exploitable (nommez les fichiers : Warscrolls, Weapons, Keywords, Abilities, Subfactions...)');
+        await AOS.save(db); AOS.setDB(db);
+        this.aStatus = '✓ ' + AOS.info(db) + ' importés' + (db.ws.length ? '' : ' — aucun Warscrolls reconnu (analyse des unités indisponible)');
+      } catch (e) { this.aStatus = '✗ ' + (e.message || e); }
+      ev.target.value = '';
+    },
+    async clearAos() { try { await AOS.clear(); } catch (e) {} AOS.db = null; AOS.pack = null; this.aStatus = 'Données AoS supprimées'; },
+    saveAosPack() {
+      try {
+        if (this.aosPackRaw.trim()) { const p = JSON.parse(this.aosPackRaw); if (!p.aos || typeof p.aos !== 'object') throw new Error(); }
+        localStorage.setItem('warroom_aos_pack', this.aosPackRaw);
+        this.aosPackStatus = '✓ Pack AoS enregistré';
+      } catch (e) { this.aosPackStatus = '✗ JSON invalide (format attendu : {"aos":{...}})'; }
+    },
+    clearAosPack() { this.aosPackRaw = ''; localStorage.removeItem('warroom_aos_pack'); this.aosPackStatus = 'Pack AoS réinitialisé'; },
+    async clearWaha() {
+      try { await WAHA.clear(); } catch (e) {}
+      WAHA.db = null; location.reload();
+    },
+
+    // ---------- Parsing ----------
+    parseList(raw) {
+      const units = [];
+      let totalPts = 0;
+      const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      const skipRe = /total|points? de l|army|armée|^liste|roster|détachement|detachment|battle formation|grand strat|^\d{3,4}\s*(pts|points)?\s*$/i;
+      const ptsRe = /[\(\[]?\s*(\d{2,4})\s*(?:pts?|points?)\s*[\)\]]?|[\(\[]\s*(\d{2,4})\s*[\)\]]/i;
+
+      for (const line of lines) {
+        if (skipRe.test(line)) continue;
+        const m = line.match(ptsRe);
+        if (!m) continue;
+        const pts = parseInt(m[1] || m[2], 10);
+        if (!pts || pts < 20 || pts > 1200) continue;
+        let name = line.replace(ptsRe, '')
+          .replace(/^[\s•\-\*\+>·]+/, '')
+          .replace(/^(\d+)\s*[xX]\s*/, '')
+          .replace(/[\(\)\[\]]+/g, ' ')
+          .replace(/\s{2,}/g, ' ')
+          .trim();
+        if (!name || name.length < 3) continue;
+        units.push({ name, pts, lower: (line).toLowerCase() });
+        totalPts += pts;
+      }
+      return { units, totalPts };
+    },
+
+    detectFaction(raw) {
+      const low = raw.toLowerCase();
+      const db = FACTION_DB[this.gameSystem] || [];
+      let best = null, bestHits = 0;
+      for (const f of db) {
+        let hits = 0;
+        for (const k of f.keys) if (low.includes(k)) hits++;
+        if (hits > bestHits) { bestHits = hits; best = f; }
+      }
+      return bestHits > 0 ? best : null;
+    },
+
+    classifyUnits(units) {
+      const customKeys = this.getCustomKeys();
+      const cats = { antichar:0, antihorde:0, melee:0, tough:0, fast:0, scoring:0, leader:0, psychic:0 };
+      for (const u of units) {
+        u.roles = [];
+        const weight = Math.max(1, u.pts / 100);
+        for (const [cat, keys] of Object.entries(ROLE_KEYS)) {
+          if (keys.some(k => u.lower.includes(k))) {
+            cats[cat] += weight;
+            u.roles.push(cat);
+          }
+        }
+        for (const [kw, cat] of Object.entries(customKeys)) {
+          if (cats[cat] !== undefined && u.lower.includes(kw.toLowerCase()) && !u.roles.includes(cat)) {
+            cats[cat] += weight;
+            u.roles.push(cat);
+          }
+        }
+      }
+      return cats;
+    },
+
+    // ---------- Moteur d'analyse ----------
+    analyze() {
+      this.error = '';
+      this.report = null;
+      if (!this.rawList.trim()) { this.error = "Veuillez coller une liste d'armée."; return; }
+      this.loading = true;
+
+      try {
+        const { units, totalPts } = this.parseList(this.rawList);
+        if (units.length < 2) {
+          throw new Error("Impossible de détecter les unités : vérifiez que chaque unité comporte son coût en points (ex: 'Intercessors (160 pts)').");
+        }
+
+        let faction = this.detectFaction(this.rawList);
+        let cats = this.classifyUnits(units);
+        const dx = (this.gameSystem === '40k') ? WAHA.analyze(units, totalPts) : AOS.analyze(units, totalPts);
+        const dxOn = !!(dx && dx.cov >= WAHA.CAL.covMin);
+        if (dxOn) {
+          cats = WAHA.recat(units);
+          if (dx.faction) faction = WAHA.pickFaction(dx.faction, faction, FACTION_DB[this.gameSystem] || []);
+        }
+        const refPts = Math.max(totalPts, 750);
+        const d = cat => (cats[cat] / refPts) * 1000;
+
+        const is40k = this.gameSystem === '40k';
+
+        // Scores (0-10) par densité pondérée / 1000 pts
+        let letal = clamp(2 + d('antichar')*0.9 + d('antihorde')*0.55 + d('melee')*0.5, 1, 10);
+        let resist = clamp(2 + d('tough')*1.0 + d('scoring')*0.25, 1, 10);
+        let mobil = clamp(2 + d('fast')*0.9 + d('scoring')*0.45, 1, 10);
+        let syner = clamp(2.5 + d('leader')*1.3 + d('psychic')*0.6 + (faction ? 0.5 : 0), 1, 10);
+
+        if (dxOn) {
+          const w = dx.cov;
+          letal = clamp(letal*(1-w) + dx.s.letal*w, 1, 10);
+          resist = clamp(resist*(1-w) + dx.s.resist*w, 1, 10);
+          mobil = clamp(mobil*(1-w) + dx.s.mobil*w, 1, 10);
+          syner = clamp(syner*(1-w) + dx.s.syner*w, 1, 10);
+        }
+const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, faction);
+        if (regles.syn !== undefined) syner = clamp(syner*0.5 + (1 + 9*regles.syn)*0.5, 1, 10);   // synergie = personnages + adéquation des règles/stratagèmes
+        const labels = is40k
+          ? ['Létalité','Résistance','Mobilité & Scoring','Synergie de Détachement']
+          : ['Impact Mêlée & Magie','Résilience','Contrôle du Plateau','Synergie de Faction'];
+        const domains = ['letalite','resistance','mobilite','synergie'];
+        const values = is40k
+          ? [letal, resist, mobil, syner]
+          : [clamp(2 + d('melee')*0.8 + d('psychic')*0.7, 1, 10), resist, clamp(2 + d('fast')*0.7 + d('scoring')*0.7, 1, 10), syner];
+
+        if (dxOn && !is40k) { const w = dx.cov; values[0] = clamp(values[0]*(1-w) + dx.s.letal*w, 1, 10); values[2] = clamp(values[2]*(1-w) + dx.s.mobil*w, 1, 10); }
+        const scores = labels.map((label, i) => ({
+          label, valeur: values[i], commentaire: commentFromScore(values[i], domains[i])
+        }));
+
+        // Pivots : top unités aux points
+        const roleLabel = (u) => {
+          const ML = { antichar:'Antichar', antihorde:'Anti-masse', melee:'Frappe mêlée', tough:'Enclume', fast:'Élément mobile', scoring:'Scoring' };
+          if (u.dxMain) return (u.roles.includes('leader') ? 'Chef · ' : '') + ML[u.dxMain];
+          if (u.roles.includes('leader')) return 'Commandement';
+          if (u.roles.includes('antichar')) return 'Antichar';
+          if (u.roles.includes('tough')) return 'Enclume';
+          if (u.roles.includes('melee')) return 'Frappe mêlée';
+          if (u.roles.includes('antihorde')) return 'Anti-masse';
+          if (u.roles.includes('fast')) return 'Élément mobile';
+          if (u.roles.includes('psychic')) return is40k ? 'Soutien psychique' : 'Soutien magique';
+          if (u.roles.includes('scoring')) return 'Scoring';
+          return 'Polyvalent';
+        };
+        const sorted = [...units].sort((a,b) => b.pts - a.pts);
+        const pivots = sorted.slice(0, Math.min(5, sorted.length)).map(u => ({
+          unite: u.name,
+          role: roleLabel(u),
+          explication: `${u.pts} pts — ${Math.round(u.pts/totalPts*100)}% du budget. ` +
+            (u.roles.length
+              ? `Rôles détectés : ${u.roles.map(r => ({antichar:'antichar',antihorde:'anti-masse',melee:'mêlée',tough:'résilience',fast:'mobilité',scoring:'scoring',leader:'commandement',psychic:is40k?'psychique':'magie'}[r])).join(', ')}. Sa perte serait lourde de conséquences.`
+              : `Rôle non identifié par le dictionnaire (ajoutez un mot-clé via le pack de données pour affiner).`)
+        }));
+
+        if (dxOn) sorted.slice(0, pivots.length).forEach((u, i) => { if (u.dxTxt) pivots[i].explication += ' ' + u.dxTxt; });
+
+        // Gameplan
+        const strongest = labels[values.indexOf(Math.max(...values))];
+        const weakest = labels[values.indexOf(Math.min(...values))];
+        const topPivot = pivots[0] ? pivots[0].unite : 'vos unités clés';
+        const gameplan = {
+          ouverture: values[2] >= 7
+            ? `Profitez de votre mobilité pour prendre position tôt sur les objectifs médians. Projetez ${topPivot} en menace immédiate tout en gardant un filet de scoring derrière.`
+            : `Déploiement prudent et compact : avancez par échelons en utilisant le terrain, sans exposer ${topPivot} avant d'avoir sécurisé vos premières positions.`,
+          milieu_de_partie: values[0] >= values[1]
+            ? `Votre point fort est « ${strongest} » : forcez les échanges là où vos outils dominent, en concentrant les dégâts pour détruire entièrement les cibles prioritaires adverses.`
+            : `Votre point fort est « ${strongest} » : tenez les positions acquises et laissez l'adversaire s'épuiser contre vos unités les plus dures, en marquant à chaque tour.`,
+          fin_de_partie: `Convertissez l'avantage en points de victoire : conservez au moins une unité de scoring vivante par zone clé. Votre lacune « ${weakest} » devient critique en fin de partie — ne la laissez pas dicter les derniers tours.`
+        };
+
+        // Plan adverse
+        const fragile = values[1] <= 5;
+        const lent = values[2] <= 5;
+        const plan_contre = {
+          philosophie: faction
+            ? faction.contrePhilo
+            : `Exploiter la lacune principale de la liste (« ${weakest} ») tout en refusant son point fort (« ${strongest} »).`,
+          deploiement: fragile
+            ? `Déployer agressivement : cette liste supporte mal l'attrition. Positionnez vos menaces pour frapper tôt les pivots identifiés.`
+            : `Déployer en refus de flanc : ne donnez pas de cible groupée, forcez la liste à se diviser pour venir vous chercher.`,
+          ouverture: lent
+            ? `Prendre d'emblée les objectifs éloignés : la liste manque de mobilité pour contester partout. Chaque tour où elle court derrière vous est un tour gagné.`
+            : `Écranter généreusement et laisser venir : absorbez la première vague sur des unités sacrifiables sans exposer vos pièces maîtresses.`,
+          milieu_de_partie: `Concentrer les dégâts sur ${topPivot} jusqu'à destruction complète avant de changer de cible. Les demi-mesures contre les pivots de cette liste ne paient pas.`,
+          fin_de_partie: `Basculer en mode mission : sécuriser les zones que la liste adverse, affaiblie sur « ${weakest} », ne peut plus contester, et protéger vos unités de scoring restantes.`,
+          cibles_prioritaires: pivots.slice(0, 3).map(p => `${p.unite} (${p.role})`),
+          erreurs_a_eviter: [
+            `Affronter frontalement le point fort de la liste (« ${strongest} »).`,
+            fragile ? `Disperser vos dégâts : la fragilité adverse ne paie que si vous détruisez des unités ENTIÈRES.` : `Sous-estimer la résilience adverse : prévoyez plus de dégâts que nécessaire sur chaque cible.`,
+            lent ? `Rester statique et lui permettre d'établir son dispositif à son rythme.` : `Laisser des unités isolées à portée de charge/frappe de ses éléments rapides.`
+          ]
+        };
+
+        const hordeV = (dxOn && dx.k) ? clamp(1 + 9*dx.k.Ho/(dx.k.Ho + 700), 1, 10) : clamp(2 + d('antihorde')*1.2, 1, 10);
+        // Matchups
+        const evalOf = v => v >= 7 ? 'Favorable' : (v >= 5 ? 'Équilibré' : 'Défavorable');
+        const matchups = is40k ? [
+          { archetype:'Gunline / tir statique', evaluation: evalOf(Math.max(values[1], values[2])), details:`Dépend de votre capacité à encaisser (${values[1]}/10) ou à fermer la distance (${values[2]}/10).` },
+          { archetype:'Mêlée agressive', evaluation: evalOf(Math.max(values[0], values[1])), details:`Votre létalité (${values[0]}/10) et votre tenue au choc (${values[1]}/10) détermineront l'échange.` },
+          { archetype:'Horde / saturation', evaluation: evalOf(hordeV), details:`Capacité anti-masse estimée : ${hordeV}/10` + ((dxOn && dx.k) ? ` (≈ ${Math.round(dx.k.Ho)} pts de hordes détruits par round et par 1000 pts).` : '.') },
+          { archetype:'Contrôle de table / scoring', evaluation: evalOf(values[2]), details:`Votre mobilité & scoring (${values[2]}/10) face aux listes qui jouent la mission avant tout.` }
+        ] : [
+          { archetype:'Armée de tir / magie à distance', evaluation: evalOf(Math.max(values[1], values[2])), details:`Résilience (${values[1]}/10) ou vitesse de fermeture (${values[2]}/10) nécessaires.` },
+          { archetype:'Rouleau de mêlée', evaluation: evalOf(Math.max(values[0], values[1])), details:`Impact (${values[0]}/10) et tenue au choc (${values[1]}/10) face aux armées de charge.` },
+          { archetype:'Marée de figurines', evaluation: evalOf(clamp(2 + d('antihorde')*1.2 + d('melee')*0.4, 1, 10)), details:`Capacité de nettoyage de masse estimée.` },
+          { archetype:'Contrôle du plateau', evaluation: evalOf(values[2]), details:`Votre contrôle du plateau (${values[2]}/10) face aux listes de scoring pur.` }
+        ];
+
+        // Vulnérabilités
+        const vulns = [];
+        if (dxOn) vulns.push(...dx.vulns);
+        if (values[0] <= 4) vulns.push(is40k ? 'Manque de punch contre cibles lourdes' : 'Impact offensif insuffisant');
+        if (values[1] <= 4) vulns.push('Fragilité générale — perd la guerre d\'usure');
+        if (values[2] <= 4) vulns.push(is40k ? 'Mobilité insuffisante pour le jeu de mission' : 'Contrôle du plateau difficile');
+        if (values[3] <= 4) vulns.push('Peu de synergies internes — unités livrées à elles-mêmes');
+        if (!dxOn && d('antichar') < 1.5) vulns.push(is40k ? 'Antichar léger : les blindés lourds adverses seront un problème' : 'Peu d\'outils contre les monstres adverses');
+        if (!dxOn && d('antihorde') < 1.5) vulns.push('Anti-masse limité : vulnérable aux hordes');
+        if (pivots[0] && pivots[0].unite && (sorted[0].pts / totalPts) > 0.25) vulns.push(`Dépendance forte à ${sorted[0].name} (${Math.round(sorted[0].pts/totalPts*100)}% du budget)`);
+        if (faction) faction.faiblesses.forEach(f => { if (vulns.length < 7) vulns.push(f); });
+        if (vulns.length === 0) vulns.push('Aucune vulnérabilité structurelle majeure détectée par le moteur heuristique');
+
+        // Résumé
+        let resume = (faction
+          ? `Faction détectée : ${faction.name}. ${faction.style} `
+          : `Faction non identifiée avec certitude par le dictionnaire embarqué — analyse basée uniquement sur la composition. `)
+          + `La liste totalise ${totalPts} pts répartis sur ${units.length} unités détectées. `
+          + `Point fort structurel : ${strongest} (${Math.max(...values)}/10). Point faible : ${weakest} (${Math.min(...values)}/10). `
+          + (faction ? `Forces typiques de la faction : ${faction.forces.join(' · ')}.` : '');
+        if (dx) resume += ' ' + dx.txt;
+
+        const reportData = {
+          titre_rapport: `Analyse tactique — ${faction ? faction.name : 'Liste ' + (is40k ? '40k' : 'AoS')}`,
+          systeme: this.gameSystem,
+          edition: is40k ? '11e édition (v11)' : '4e édition (v4)',
+          faction_detectee: faction ? faction.name : 'Non identifiée',
+          detachement_ou_formation: '—',
+          total_points: totalPts,
+          nb_unites: units.length,
+          resume_executif: resume,
+          scores, regles, pivots_de_liste: pivots, gameplan, plan_contre, matchups,
+          vulnerabilites_cles: vulns.slice(0, 7)
+        };
+
+        this.report = reportData;
+        this.addHistoryEntry(reportData, this.gameSystem, this.rawList);
+
+      } catch (e) {
+        console.error(e);
+        this.error = e.message || "Erreur lors de l'analyse.";
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    resetAll() { this.report = null; this.rawList = ''; this.error = ''; },
+
+    // ---------- Helpers UI ----------
+    arr(v) { return Array.isArray(v) ? v : []; },
+    scoreColor(v) { return v >= 7 ? 'text-neon-green' : (v >= 5 ? 'text-neon-amber' : 'text-neon-red'); },
+    scoreBarColor(v) { return v >= 7 ? 'bg-neon-green' : (v >= 5 ? 'bg-neon-amber' : 'bg-neon-red'); },
+
+    // ---------- Historique ----------
+    loadHistory() {
+      try { this.history = JSON.parse(localStorage.getItem('warroom_history') || '[]'); }
+      catch (e) { this.history = []; }
+    },
+    // Écoute temps réel de Firestore : fusionne le local avec le cloud, puis garde les deux alignés
+    startCloudSync() {
+      try {
+        if (!CLOUD.init()) { this.cloudStatus = '☁ SDK Firebase indisponible (mode local)'; return; }
+        this.cloudStatus = '☁ Connexion…';
+        let first = true;
+        CLOUD.col.orderBy('date', 'desc').limit(this.HISTORY_MAX).onSnapshot(snap => {
+          const remote = snap.docs.map(d => CLOUD.fromDoc(d.data())).filter(Boolean);
+          if (first) {
+            first = false;
+            // Première synchro : on envoie au cloud les analyses locales qui n'y sont pas encore
+            const remoteIds = new Set(remote.map(h => h.id));
+            const localOnly = this.history.filter(h => !remoteIds.has(h.id));
+            localOnly.forEach(h => CLOUD.push(h));
+            this.history = [...remote, ...localOnly]
+              .sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, this.HISTORY_MAX);
+          } else {
+            this.history = remote;
+          }
+          this.persistHistory();
+          this.cloudStatus = snap.metadata.fromCache ? '☁ Hors ligne (en attente de synchro)' : '☁ Synchronisé avec Firestore';
+        }, err => {
+          console.warn('Firestore :', err);
+          this.cloudStatus = '☁ Erreur Firestore (vérifier les règles de sécurité) — mode local';
+        });
+      } catch (e) {
+        console.warn(e);
+        this.cloudStatus = '☁ Erreur de connexion Firestore — mode local';
+      }
+    },
+    persistHistory() {
+      localStorage.setItem('warroom_history', JSON.stringify(this.history.slice(0, this.HISTORY_MAX)));
+    },
+    addHistoryEntry(reportData, system, rawList) {
+      const entry = {
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2,7),
+        date: new Date().toISOString(),
+        system,
+        faction: reportData.faction_detectee,
+        titre: reportData.titre_rapport,
+        rawList, report: reportData
+      };
+      this.history.unshift(entry);
+      if (this.history.length > this.HISTORY_MAX) this.history = this.history.slice(0, this.HISTORY_MAX);
+      this.persistHistory();
+      CLOUD.push(entry); // synchronisation Firestore
+    },
+    openHistoryItem(id) {
+      const entry = this.history.find(h => h.id === id);
+      if (!entry) return;
+      this.gameSystem = entry.system;
+      this.rawList = entry.rawList;
+      this.report = entry.report;
+      this.showHistory = false;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    },
+    deleteHistoryItem(id) {
+      this.history = this.history.filter(h => h.id !== id);
+      this.persistHistory();
+      CLOUD.remove([id]);
+    },
+    clearAllHistory() {
+      if (!confirm("Supprimer tout l'historique ?")) return;
+      const ids = this.history.map(h => h.id);
+      this.history = [];
+      this.persistHistory();
+      CLOUD.remove(ids);
+    },
+    formatDate(iso) {
+      const d = new Date(iso);
+      return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'}) + ' ' +
+             d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+    },
+
+    // ---------- Export PDF (capture directe des sections réelles, sans clone) ----------
+    async exportPDF() {
+      if (!this.report) return;
+      this.exporting = true;
+      try {
+        const container = this.$refs.reportContent;
+        if (!container) throw new Error("Contenu du rapport introuvable.");
+        const sections = Array.from(container.querySelectorAll(':scope > section'));
+        if (sections.length === 0) throw new Error("Aucune section à exporter.");
+
+        const { jsPDF } = window.jspdf;
+        const MAX_BYTES = 10 * 1024 * 1024; // limite : 10 Mo
+        const BG=[5,7,10], LINE=[27,37,48], GREEN=[57,255,143], MUTED=[140,150,160];
+
+        // 1) Capture unique de chaque section (haute définition, une seule fois)
+        const captured = [];
+        for (const sectionEl of sections) {
+          captured.push(await html2canvas(sectionEl, { scale: 2, backgroundColor: '#05070a', useCORS: true, logging: false }));
+        }
+
+        // Réduit un canvas (facteur < 1) pour alléger l'image embarquée
+        const downscale = (canvas, f) => {
+          if (f >= 1) return canvas;
+          const c = document.createElement('canvas');
+          c.width = Math.max(1, Math.round(canvas.width * f));
+          c.height = Math.max(1, Math.round(canvas.height * f));
+          const ctx = c.getContext('2d');
+          ctx.fillStyle = '#05070a'; ctx.fillRect(0, 0, c.width, c.height);
+          ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(canvas, 0, 0, c.width, c.height);
+          return c;
+        };
+
+        // 2) Construction du PDF avec un niveau de compression donné (JPEG + flux compressés)
+        const buildPDF = (factor, quality) => {
+          const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4', compress: true });
+          const pageWidth = pdf.internal.pageSize.getWidth();
+          const pageHeight = pdf.internal.pageSize.getHeight();
+          const margin = 10, headerHeight = 14, footerZone = 8;
+          const usableWidth = pageWidth - margin * 2;
+          const contentTop = margin + headerHeight;
+          const contentBottom = pageHeight - footerZone;
+          const usableHeight = contentBottom - contentTop;
+          const blockGap = 4;
+
+          const drawPageChrome = (pageNum) => {
+            pdf.setFillColor(...BG); pdf.rect(0, 0, pageWidth, pageHeight, 'F');
+            pdf.setFont('helvetica','bold'); pdf.setFontSize(12); pdf.setTextColor(...GREEN);
+            pdf.text('WAR-ROOM LOCAL', margin, margin + 5);
+            pdf.setFont('helvetica','normal'); pdf.setFontSize(8); pdf.setTextColor(...MUTED);
+            let subtitle = `${this.report.faction_detectee || ''} — ${this.report.edition || ''}`;
+            if (subtitle.length > 95) subtitle = subtitle.slice(0, 92) + '…';
+            pdf.text(subtitle, margin, margin + 10);
+            pdf.setDrawColor(...LINE); pdf.setLineWidth(0.3);
+            pdf.line(margin, margin + headerHeight - 2, pageWidth - margin, margin + headerHeight - 2);
+            pdf.setFontSize(7);
+            pdf.text(`Page ${pageNum}`, pageWidth - margin, pageHeight - 4, { align: 'right' });
+            pdf.text('Analyse heuristique locale — Vérifiez les règles officielles avant utilisation', margin, pageHeight - 4);
+          };
+
+          let pageNum = 1;
+          drawPageChrome(pageNum);
+          let cursorY = contentTop;
+          const addNewPage = () => { pdf.addPage(); pageNum++; drawPageChrome(pageNum); cursorY = contentTop; };
+
+          for (const srcCanvas of captured) {
+            const canvas = downscale(srcCanvas, factor);
+            const pxPerMm = canvas.width / usableWidth;
+            const imgHeightMm = canvas.height / pxPerMm;
+
+            if (imgHeightMm <= usableHeight) {
+              if (cursorY !== contentTop && (cursorY + imgHeightMm) > contentBottom) addNewPage();
+              pdf.addImage(canvas.toDataURL('image/jpeg', quality), 'JPEG', margin, cursorY, usableWidth, imgHeightMm, undefined, 'FAST');
+              cursorY += imgHeightMm + blockGap;
+            } else {
+              if (cursorY !== contentTop) addNewPage();
+              const maxChunkPx = Math.floor(usableHeight * pxPerMm);
+              let renderedPx = 0;
+              while (renderedPx < canvas.height) {
+                const chunkPx = Math.min(maxChunkPx, canvas.height - renderedPx);
+                const chunkCanvas = document.createElement('canvas');
+                chunkCanvas.width = canvas.width; chunkCanvas.height = chunkPx;
+                const cctx = chunkCanvas.getContext('2d');
+                cctx.fillStyle = '#05070a'; cctx.fillRect(0, 0, chunkCanvas.width, chunkPx);
+                cctx.drawImage(canvas, 0, renderedPx, canvas.width, chunkPx, 0, 0, canvas.width, chunkPx);
+                const chunkHeightMm = chunkPx / pxPerMm;
+                pdf.addImage(chunkCanvas.toDataURL('image/jpeg', quality), 'JPEG', margin, cursorY, usableWidth, chunkHeightMm, undefined, 'FAST');
+                renderedPx += chunkPx;
+                if (renderedPx < canvas.height) addNewPage();
+                else cursorY += chunkHeightMm + blockGap;
+              }
+            }
+          }
+          return pdf;
+        };
+
+        // 3) Compression progressive : on s'arrête dès que le PDF tient sous 10 Mo
+        const presets = [
+          { factor: 1.00, quality: 0.85 },
+          { factor: 0.85, quality: 0.75 },
+          { factor: 0.70, quality: 0.65 },
+          { factor: 0.55, quality: 0.55 },
+          { factor: 0.45, quality: 0.50 },
+          { factor: 0.35, quality: 0.45 }
+        ];
+        let pdf = null, finalSize = 0, underLimit = false;
+        for (const p of presets) {
+          pdf = buildPDF(p.factor, p.quality);
+          finalSize = pdf.output('blob').size;
+          if (finalSize <= MAX_BYTES) { underLimit = true; break; }
+          await new Promise(r => setTimeout(r, 0)); // laisse respirer l'UI
+        }
+        console.info(`PDF exporté : ${(finalSize / 1048576).toFixed(2)} Mo`);
+
+        const factionSlug = (this.report.faction_detectee || 'rapport').toLowerCase().replace(/[^a-z0-9]+/g,'_').slice(0,40);
+        pdf.save(`warroom_${this.gameSystem}_${factionSlug}_${Date.now()}.pdf`);
+        if (!underLimit) this.error = `PDF exporté (${(finalSize / 1048576).toFixed(1)} Mo) : impossible de descendre sous 10 Mo, rapport très volumineux.`;
+      } catch (e) {
+        console.error(e);
+        this.error = "Erreur lors de l'export PDF.";
+      } finally {
+        this.exporting = false;
+      }
+    }
+  };
+}
+</script>
+</body>
+</html>
