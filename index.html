@@ -349,7 +349,8 @@
             <span class="text-[10px] font-mono text-slate-600" x-text="formatDate(h.date)"></span>
           </div>
           <div class="text-sm text-slate-200 font-semibold mb-1" x-text="h.faction"></div>
-          <div class="text-xs text-slate-500 mb-2 truncate" x-text="h.titre"></div>
+          <div class="text-xs text-slate-500 mb-1 truncate" x-text="h.titre"></div>
+          <div class="text-[10px] font-mono text-neon-green/70 mb-2" x-text="'👤 ' + (h.createdBy || 'inconnu')"></div>
           <div class="flex gap-2">
             <button @click="openHistoryItem(h.id)" class="flex-1 text-xs font-mono text-neon-green border border-neon-green/30 rounded-lg py-1.5 hover:bg-neon-green/10 transition">Recharger</button>
             <button @click="deleteHistoryItem(h.id)" class="text-xs font-mono text-neon-red border border-neon-red/30 rounded-lg px-3 py-1.5 hover:bg-neon-red/10 transition">✕</button>
@@ -1190,11 +1191,11 @@ const CLOUD = {
   },
   // Le rapport est stocké en JSON texte (Firestore refuse les tableaux imbriqués et les undefined)
   toDoc(h) {
-    return { id: h.id, date: h.date, system: h.system || '', faction: h.faction || '', titre: h.titre || '',
+    return { id: h.id, date: h.date, system: h.system || '', faction: h.faction || '', titre: h.titre || '', createdBy: h.createdBy || '',
              rawList: h.rawList || '', reportJson: JSON.stringify(h.report || null) };
   },
   fromDoc(d) {
-    try { return { id: d.id, date: d.date, system: d.system, faction: d.faction, titre: d.titre, rawList: d.rawList, report: JSON.parse(d.reportJson) }; }
+    try { return { id: d.id, date: d.date, system: d.system, faction: d.faction, titre: d.titre, createdBy: d.createdBy || '', rawList: d.rawList, report: JSON.parse(d.reportJson) }; }
     catch (e) { return null; }
   },
   async push(h) {
@@ -1792,6 +1793,7 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
         system,
         faction: reportData.faction_detectee,
         titre: reportData.titre_rapport,
+        createdBy: this.user ? this.user.username : '',
         rawList, report: reportData
       };
       this.history.unshift(entry);
