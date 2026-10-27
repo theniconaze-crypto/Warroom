@@ -100,13 +100,13 @@
       <div>
         <label class="block text-xs text-slate-400 mb-2 font-mono">Système de jeu</label>
         <div class="flex gap-3">
-          <button @click="gameSystem='40k'"
+          <button @click="if (gameSystem!=='40k') { gameSystem='40k'; forcedFaction=''; }"
             class="flex-1 py-3 rounded-lg border font-orbitron text-sm tracking-wide transition"
             :class="gameSystem==='40k' ? 'bg-neon-green/10 border-neon-green text-neon-green shadow-glowGreen' : 'border-void-700 text-slate-500 hover:border-slate-500'">
             WARHAMMER 40,000
             <div class="text-[10px] font-mono opacity-70 mt-0.5">11e édition (v11)</div>
           </button>
-          <button @click="gameSystem='aos'"
+          <button @click="if (gameSystem!=='aos') { gameSystem='aos'; forcedFaction=''; }"
             class="flex-1 py-3 rounded-lg border font-orbitron text-sm tracking-wide transition"
             :class="gameSystem==='aos' ? 'bg-neon-cyan/10 border-neon-cyan text-neon-cyan shadow-glowCyan' : 'border-void-700 text-slate-500 hover:border-slate-500'">
             AGE OF SIGMAR
@@ -121,6 +121,16 @@
       <h2 class="font-orbitron text-xs tracking-widest text-neon-cyan">LISTE D'ARMÉE</h2>
       <textarea x-model="rawList" rows="10" placeholder="Collez ici votre liste (NewRecruit, application officielle Games Workshop, ALN...) — chaque unité doit comporter son coût en points."
         class="w-full bg-void-800 border border-void-700 rounded-lg px-3 py-3 text-sm font-mono text-slate-200 resize-y focus:border-neon-green/60"></textarea>
+
+      <div class="flex flex-wrap items-center gap-2">
+        <label class="text-xs text-slate-400 font-mono" for="factionSelect">Faction</label>
+        <select id="factionSelect" x-model="forcedFaction" @change="onFactionChange()"
+          class="bg-void-800 border border-void-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 focus:border-neon-green/60 max-w-full">
+          <option value="">Auto-détection</option>
+          <template x-for="f in factionOptions()" :key="f"><option :value="f" x-text="f"></option></template>
+        </select>
+        <span x-show="report && forcedFaction" class="text-[10px] font-mono text-neon-amber">forcée — l'analyse se met à jour au changement</span>
+      </div>
 
       <div class="flex flex-wrap items-center gap-3">
         <button @click="analyze()" :disabled="loading"
@@ -146,7 +156,7 @@
         <section class="bg-void-900 border border-void-700 rounded-xl p-5">
           <h2 class="font-orbitron text-lg text-slate-100" x-text="report.titre_rapport"></h2>
           <div class="flex flex-wrap gap-2 mt-2 mb-4">
-            <span class="text-[10px] font-mono px-2 py-1 rounded-full bg-neon-green/10 border border-neon-green/30 text-neon-green" x-text="report.faction_detectee"></span>
+            <span class="text-[10px] font-mono px-2 py-1 rounded-full bg-neon-green/10 border border-neon-green/30 text-neon-green" x-text="report.faction_detectee + (report.faction_forcee ? ' (forcée)' : '')"></span>
             <span class="text-[10px] font-mono px-2 py-1 rounded-full bg-neon-cyan/10 border border-neon-cyan/30 text-neon-cyan" x-text="report.edition"></span>
             <span class="text-[10px] font-mono px-2 py-1 rounded-full bg-void-700 text-slate-400" x-text="report.total_points + ' pts détectés — ' + report.nb_unites + ' unités'"></span>
           </div>
@@ -1354,6 +1364,8 @@ const CLOUDDATA = {
 function warRoomApp() {
   return {
     gameSystem: '40k',
+    forcedFaction: '',
+    currentHistoryId: null,
     rawList: '',
     loading: false,
     exporting: false,
@@ -1593,7 +1605,7 @@ function warRoomApp() {
       const units = [];
       let totalPts = 0;
       const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-      const skipRe = /total|points? de l|army|armée|^liste|roster|détachement|detachment|battle formation|grand strat|^\d{3,4}\s*(pts|points)?\s*$/i;
+      const skipRe = /export[ée]e?\b|exported|\bversion\b|total|points? de l|army|armée|^liste|roster|détachement|detachment|battle formation|grand strat|^\d{3,4}\s*(pts|points)?\s*$/i;
       const ptsRe = /[\(\[]?\s*(\d{2,4})\s*(?:pts?|points?)\s*[\)\]]?|[\(\[]\s*(\d{2,4})\s*[\)\]]/i;
 
       for (const line of lines) {
@@ -1613,6 +1625,16 @@ function warRoomApp() {
         totalPts += pts;
       }
       return { units, totalPts };
+    },
+
+    factionOptions() { return (FACTION_DB[this.gameSystem] || []).map(f => f.name); },
+    forcedFactionObj() {
+      if (!this.forcedFaction) return null;
+      return (FACTION_DB[this.gameSystem] || []).find(f => f.name === this.forcedFaction) || null;
+    },
+    // Changement de faction : si une analyse est affichée, on la refait sur la même liste et on met à jour l'historique
+    onFactionChange() {
+      if (this.report && this.rawList.trim()) this.analyze({ updateId: this.currentHistoryId });
     },
 
     detectFaction(raw) {
@@ -1650,7 +1672,8 @@ function warRoomApp() {
     },
 
     // ---------- Moteur d'analyse ----------
-    analyze() {
+    analyze(opts) {
+      const updateId = (opts && typeof opts === 'object' && opts.updateId) || null;
       this.error = '';
       this.report = null;
       if (!this.rawList.trim()) { this.error = "Veuillez coller une liste d'armée."; return; }
@@ -1670,6 +1693,8 @@ function warRoomApp() {
           cats = WAHA.recat(units);
           if (dx.faction) faction = WAHA.pickFaction(dx.faction, faction, FACTION_DB[this.gameSystem] || []);
         }
+        const forced = this.forcedFactionObj();
+        if (forced) faction = forced;
         const refPts = Math.max(totalPts, 750);
         const d = cat => (cats[cat] / refPts) * 1000;
 
@@ -1796,7 +1821,7 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
 
         // Résumé
         let resume = (faction
-          ? `Faction détectée : ${faction.name}. ${faction.style} `
+          ? `${forced ? 'Faction sélectionnée' : 'Faction détectée'} : ${faction.name}. ${faction.style} `
           : `Faction non identifiée avec certitude par le dictionnaire embarqué — analyse basée uniquement sur la composition. `)
           + `La liste totalise ${totalPts} pts répartis sur ${units.length} unités détectées. `
           + `Point fort structurel : ${strongest} (${Math.max(...values)}/10). Point faible : ${weakest} (${Math.min(...values)}/10). `
@@ -1808,6 +1833,7 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
           systeme: this.gameSystem,
           edition: is40k ? '11e édition (v11)' : '4e édition (v4)',
           faction_detectee: faction ? faction.name : 'Non identifiée',
+          faction_forcee: forced ? faction.name : null,
           detachement_ou_formation: '—',
           total_points: totalPts,
           nb_unites: units.length,
@@ -1816,8 +1842,16 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
           vulnerabilites_cles: vulns.slice(0, 7)
         };
 
+        const old = updateId ? this.history.find(h => h.id === updateId) : null;
         this.report = reportData;
-        this.addHistoryEntry(reportData, this.gameSystem, this.rawList);
+        if (old) {
+          const patch = { faction: reportData.faction_detectee, report: reportData, rawList: this.rawList };
+          if (!old.titre || (old.report && old.titre === old.report.titre_rapport)) patch.titre = reportData.titre_rapport;
+          this._updateHistory(updateId, patch);
+          this.currentHistoryId = updateId;
+        } else {
+          this.currentHistoryId = this.addHistoryEntry(reportData, this.gameSystem, this.rawList);
+        }
 
       } catch (e) {
         console.error(e);
@@ -1827,7 +1861,7 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
       }
     },
 
-    resetAll() { this.report = null; this.rawList = ''; this.error = ''; },
+    resetAll() { this.report = null; this.rawList = ''; this.error = ''; this.forcedFaction = ''; this.currentHistoryId = null; },
 
     // ---------- Helpers UI ----------
     arr(v) { return Array.isArray(v) ? v : []; },
@@ -1886,6 +1920,7 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
       if (this.history.length > this.HISTORY_MAX) this.history = this.history.slice(0, this.HISTORY_MAX);
       this.persistHistory();
       CLOUD.push(entry); // synchronisation Firestore
+      return entry.id;
     },
     openHistoryItem(id) {
       const entry = this.history.find(h => h.id === id);
@@ -1893,6 +1928,8 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
       this.gameSystem = entry.system;
       this.rawList = entry.rawList;
       this.report = entry.report;
+      this.forcedFaction = (entry.report && entry.report.faction_forcee) || '';
+      this.currentHistoryId = entry.id;
       this.showHistory = false;
       window.scrollTo({ top: 0, behavior: 'smooth' });
     },
