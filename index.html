@@ -1171,22 +1171,27 @@ const RULES = (() => {
     if (!db) { out.notes.push('Importez les CSV Wahapedia (Detachments, Stratagems, Detachment_abilities, Enhancements) pour analyser les stratagèmes des détachements.'); return out; }
     if (!(db.det||[]).length) { out.notes.push('Import sans tables de détachements : ajoutez Detachments.csv, Stratagems.csv, Detachment_abilities.csv et Enhancements.csv.'); return out; }
     const nr = ' '+nrm(raw)+' ';
-    // Détachement DÉCLARÉ dans la liste (« Detachment : X » ou ligne juste avant « Strike Force / Incursion… »)
+    // Détachement(s) DÉCLARÉ(S) : lecture souple de l'en-tête de la liste.
+    // Gère « Detachment : X », « A, B, and C (3 Detachment Points) », un nom seul sur une ligne.
     const _ln = String(raw||'').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-    let declared = '';
-    for (const l of _ln) { const m = l.match(/^(?:detachment|détachement)\s*[:\-–]\s*(.+)$/i); if (m) { declared = m[1]; break; } }
-    if (!declared) { const i = _ln.findIndex(l => /^(strike force|incursion|onslaught|combat patrol)\b/i.test(l)); if (i > 0) declared = _ln[i-1]; }
-    declared = declared.replace(/\(.*?\)/g, ' ').trim();
-    const dn = nrm(declared);
-    let found;
-    if (dn) {
-      found = db.det.filter(d => d.nl === dn);
-      if (!found.length) { out.notes.push('Détachement « '+declared+' » déclaré dans la liste mais absent des CSV Wahapedia importés : réimportez des CSV à jour (aucun autre détachement n\'est affiché pour éviter une fausse correspondance).'); return out; }
-    } else {
-      found = db.det.filter(d => d.nl.length >= 5 && nr.includes(' '+d.nl+' '));
-    }
+    const _hdr = _ln.slice(0, 14);
+    const _byName = {}; db.det.forEach(d => { (_byName[d.nl] = _byName[d.nl] || []).push(d); });
+    const _seg = l => l.replace(/^(?:detachments?|détachements?)\s*[:\-–]\s*/i, '').replace(/\(.*?\)/g, ' ')
+      .split(/\s*,\s*(?:and\s+|et\s+)?|\s+(?:and|et)\s+|\s*&\s*|\s*\+\s*/i).map(x => x.trim()).filter(Boolean);
+    let found = [], declaredMiss = [], hasDecl = false;
+    _hdr.forEach(l => {
+      const dp = /detachment points?|points? de d[ée]tachement/i.test(l) || /^(?:detachments?|détachements?)\s*[:\-–]/i.test(l);
+      if (dp) hasDecl = true;
+      const segs = _seg(l), hits = [];
+      segs.forEach(sg => { const k = nrm(sg); if (_byName[k]) hits.push(..._byName[k]); else if (dp && k) declaredMiss.push(sg); });
+      if (hits.length) { hasDecl = true; found.push(...hits); }
+    });
+    const _declFound = found.length > 0;
+    if (declaredMiss.length) out.notes.push('Détachement(s) déclaré(s) mais absent(s) des CSV Wahapedia importés : ' + declaredMiss.join(', ') + ' — réimportez des CSV à jour.');
+    if (!_declFound && hasDecl) return out;
+    if (!_declFound) found = db.det.filter(d => d.nl.length >= 5 && nr.includes(' '+d.nl+' '));
     const fac = dx && dx.faction;
-    if (fac && found.some(d => d.f === fac)) found = found.filter(d => d.f === fac);
+    if (!_declFound && fac && found.some(d => d.f === fac)) found = found.filter(d => d.f === fac);
     found = found.filter((d,i,a) => a.findIndex(e => e.nl === d.nl && e.f === d.f) === i).slice(0,3);
     if (!found.length) { out.notes.push('Aucun détachement reconnu dans la liste : le nom du détachement doit y figurer (ex. « Detachment : … »).'); return out; }
     if (found.length > 1) out.notes.push(`${found.length} détachements détectés : les stratagèmes de chacun sont analysés séparément.`);
