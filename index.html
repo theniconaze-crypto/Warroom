@@ -342,7 +342,12 @@
       <button x-show="history.length>0" @click="clearAllHistory()"
         class="w-full text-xs font-mono text-neon-red border border-neon-red/30 rounded-lg py-2 hover:bg-neon-red/10 transition">🗑 Tout effacer</button>
       <template x-if="history.length===0"><p class="text-xs text-slate-500 font-mono">Aucune analyse enregistrée.</p></template>
-      <template x-for="h in history" :key="h.id">
+      <template x-for="g in historyGroups()" :key="g.name">
+       <div class="space-y-2">
+        <div class="text-[11px] font-mono text-neon-green uppercase tracking-wider pt-2 border-b border-void-700 pb-1 flex justify-between">
+          <span x-text="(g.name ? '📁 ' + g.name : '📄 Sans dossier')"></span><span class="text-slate-500" x-text="g.items.length"></span>
+        </div>
+       <template x-for="h in g.items" :key="h.id">
         <div class="bg-void-800 border border-void-700 rounded-xl p-3">
           <div class="flex items-center justify-between mb-1">
             <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-void-700 text-slate-400" x-text="h.system==='40k' ? '40K' : 'AOS'"></span>
@@ -355,7 +360,13 @@
             <button @click="openHistoryItem(h.id)" class="flex-1 text-xs font-mono text-neon-green border border-neon-green/30 rounded-lg py-1.5 hover:bg-neon-green/10 transition">Recharger</button>
             <button @click="deleteHistoryItem(h.id)" class="text-xs font-mono text-neon-red border border-neon-red/30 rounded-lg px-3 py-1.5 hover:bg-neon-red/10 transition">✕</button>
           </div>
+          <div class="flex gap-2 mt-2">
+            <button @click="renameHistoryItem(h.id)" class="flex-1 text-[11px] font-mono text-slate-300 border border-void-700 rounded-lg py-1 hover:bg-void-700 transition">✎ Renommer</button>
+            <button @click="moveHistoryItem(h.id)" class="flex-1 text-[11px] font-mono text-slate-300 border border-void-700 rounded-lg py-1 hover:bg-void-700 transition">📁 Dossier</button>
+          </div>
         </div>
+       </template>
+       </div>
       </template>
     </div>
   </div>
@@ -1191,11 +1202,11 @@ const CLOUD = {
   },
   // Le rapport est stocké en JSON texte (Firestore refuse les tableaux imbriqués et les undefined)
   toDoc(h) {
-    return { id: h.id, date: h.date, system: h.system || '', faction: h.faction || '', titre: h.titre || '', createdBy: h.createdBy || '',
+    return { id: h.id, date: h.date, system: h.system || '', faction: h.faction || '', titre: h.titre || '', createdBy: h.createdBy || '', folder: h.folder || '',
              rawList: h.rawList || '', reportJson: JSON.stringify(h.report || null) };
   },
   fromDoc(d) {
-    try { return { id: d.id, date: d.date, system: d.system, faction: d.faction, titre: d.titre, createdBy: d.createdBy || '', rawList: d.rawList, report: JSON.parse(d.reportJson) }; }
+    try { return { id: d.id, date: d.date, system: d.system, faction: d.faction, titre: d.titre, createdBy: d.createdBy || '', folder: d.folder || '', rawList: d.rawList, report: JSON.parse(d.reportJson) }; }
     catch (e) { return null; }
   },
   async push(h) {
@@ -1809,6 +1820,28 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
       this.report = entry.report;
       this.showHistory = false;
       window.scrollTo({ top: 0, behavior: 'smooth' });
+    },
+    historyGroups() {
+      const m = new Map();
+      this.history.forEach(h => { const k = (h.folder || '').trim(); if (!m.has(k)) m.set(k, []); m.get(k).push(h); });
+      return [...m.entries()].sort((a, b) => !a[0] ? 1 : !b[0] ? -1 : a[0].localeCompare(b[0], 'fr'))
+        .map(([name, items]) => ({ name, items }));
+    },
+    _updateHistory(id, patch) {
+      const h = this.history.find(x => x.id === id); if (!h) return;
+      Object.assign(h, patch); this.history = [...this.history];
+      this.persistHistory(); CLOUD.push(h);
+    },
+    renameHistoryItem(id) {
+      const h = this.history.find(x => x.id === id); if (!h) return;
+      const v = prompt('Nouveau nom de la liste :', h.titre || '');
+      if (v !== null && v.trim()) this._updateHistory(id, { titre: v.trim() });
+    },
+    moveHistoryItem(id) {
+      const h = this.history.find(x => x.id === id); if (!h) return;
+      const existing = [...new Set(this.history.map(x => x.folder).filter(Boolean))];
+      const v = prompt('Nom du dossier (équipe)' + (existing.length ? '\nExistants : ' + existing.join(', ') : '') + '\nLaisser vide pour retirer du dossier :', h.folder || '');
+      if (v !== null) this._updateHistory(id, { folder: v.trim() });
     },
     deleteHistoryItem(id) {
       this.history = this.history.filter(h => h.id !== id);
