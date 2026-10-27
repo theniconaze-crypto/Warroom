@@ -64,7 +64,8 @@
         </div>
       </div>
       <div class="flex items-center gap-2">
-        <button @click="openSettings()"
+        <span x-show="user" class="hidden sm:inline text-[11px] font-mono text-slate-400" x-text="user ? ('👤 ' + user.username + (isAdmin() ? ' · ADMIN' : '')) : ''"></span>
+        <button x-show="isAdmin()" @click="openSettings()"
           class="flex items-center gap-2 text-xs font-mono px-3 py-2 rounded-lg border border-void-700 bg-void-800 hover:border-neon-cyan/50 hover:text-neon-cyan transition">
           <span>⚙</span><span class="hidden sm:inline">Réglages</span>
         </button>
@@ -72,6 +73,10 @@
           class="flex items-center gap-2 text-xs font-mono px-3 py-2 rounded-lg border border-void-700 bg-void-800 hover:border-neon-cyan/50 hover:text-neon-cyan transition">
           <span>🕘</span><span class="hidden sm:inline">Historique</span>
           <span class="bg-void-700 px-1.5 py-0.5 rounded text-[10px]" x-text="history.length"></span>
+        </button>
+        <button x-show="user" @click="logout()"
+          class="flex items-center gap-2 text-xs font-mono px-3 py-2 rounded-lg border border-void-700 bg-void-800 hover:border-neon-red/50 hover:text-neon-red transition">
+          <span>⏻</span><span class="hidden sm:inline">Déconnexion</span>
         </button>
       </div>
     </div>
@@ -354,7 +359,23 @@
     </div>
   </div>
 
-  <!-- ===================== SETTINGS (protégé par mot de passe) ===================== -->
+  <!-- ===================== CONNEXION ===================== -->
+  <div x-show="!user" class="fixed inset-0 z-[60] bg-void-950 scanline-bg flex items-center justify-center p-4">
+    <form @submit.prevent="login()" class="w-full max-w-sm bg-void-900 border border-void-700 rounded-xl p-6 space-y-4 shadow-glowGreen">
+      <div class="text-center">
+        <h2 class="font-orbitron tracking-widest text-slate-100">WAR-ROOM <span class="text-neon-green">ACCÈS</span></h2>
+        <p class="text-[11px] text-slate-500 font-mono mt-1">Identifiez-vous pour continuer</p>
+      </div>
+      <input x-model="loginUser" autocomplete="username" placeholder="Identifiant"
+        class="w-full bg-void-800 border border-void-700 rounded-lg px-3 py-2 text-sm font-mono text-slate-200 focus:border-neon-green/60">
+      <input type="password" x-model="loginPwd" autocomplete="current-password" placeholder="Mot de passe"
+        class="w-full bg-void-800 border border-void-700 rounded-lg px-3 py-2 text-sm font-mono text-slate-200 focus:border-neon-green/60">
+      <button type="submit" :disabled="loginBusy" class="w-full text-xs font-mono px-4 py-2 rounded-lg border border-neon-green/50 text-neon-green hover:bg-neon-green/10 transition" x-text="loginBusy ? 'Vérification…' : 'Se connecter'"></button>
+      <p class="text-[11px] font-mono text-neon-red text-center" x-text="loginError"></p>
+    </form>
+  </div>
+
+  <!-- ===================== SETTINGS (admin) ===================== -->
   <div x-show="showSettings" x-transition.opacity @click="closeSettings()" class="fixed inset-0 bg-black/60 z-40"></div>
   <div x-show="showSettings" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
     x-transition:leave="transition ease-in duration-200" x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full"
@@ -379,7 +400,34 @@
     <!-- Contenu (rendu uniquement une fois déverrouillé) -->
     <template x-if="settingsUnlocked">
       <div class="p-5 space-y-4">
-        <h2 class="font-orbitron text-xs tracking-widest text-neon-cyan">IMPORT DES DONNÉES</h2>
+        <h2 class="font-orbitron text-xs tracking-widest text-neon-cyan">COMPTES UTILISATEURS</h2>
+        <div class="bg-void-800 border border-void-700 rounded-lg p-3 space-y-3">
+          <div class="flex flex-wrap gap-2">
+            <input x-model="newUser" placeholder="Identifiant" class="flex-1 min-w-[8rem] bg-void-900 border border-void-700 rounded-lg px-3 py-1.5 text-xs font-mono text-slate-200">
+            <input x-model="newPwd" type="password" placeholder="Mot de passe" class="flex-1 min-w-[8rem] bg-void-900 border border-void-700 rounded-lg px-3 py-1.5 text-xs font-mono text-slate-200">
+            <select x-model="newRole" class="bg-void-900 border border-void-700 rounded-lg px-2 py-1.5 text-xs font-mono text-slate-200">
+              <option value="user">Utilisateur</option><option value="admin">Admin</option>
+            </select>
+            <button @click="createUser()" class="text-xs font-mono px-3 py-1.5 rounded-lg border border-neon-green/40 text-neon-green hover:bg-neon-green/10 transition">Créer</button>
+          </div>
+          <p class="text-[11px] font-mono text-slate-500" x-text="usersStatus"></p>
+          <div class="divide-y divide-void-700">
+            <div class="flex items-center justify-between py-2 text-xs font-mono">
+              <span class="text-slate-300">admin <span class="text-neon-cyan">· ADMIN (intégré)</span></span>
+            </div>
+            <template x-for="u in users" :key="u.username">
+              <div class="flex items-center justify-between gap-2 py-2 text-xs font-mono">
+                <span class="text-slate-300"><span x-text="u.username"></span> <span class="text-neon-cyan" x-show="u.role === 'admin'">· ADMIN</span></span>
+                <div class="flex gap-2">
+                  <button @click="resetUserPwd(u)" class="px-2 py-1 rounded border border-void-700 text-slate-400 hover:border-neon-amber/50 hover:text-neon-amber">Mot de passe</button>
+                  <button @click="toggleRole(u)" class="px-2 py-1 rounded border border-void-700 text-slate-400 hover:border-neon-cyan/50 hover:text-neon-cyan" x-text="u.role === 'admin' ? 'Rétrograder' : 'Promouvoir'"></button>
+                  <button @click="deleteUser(u)" class="px-2 py-1 rounded border border-void-700 text-slate-400 hover:border-neon-red/50 hover:text-neon-red">Supprimer</button>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+        <h2 class="font-orbitron text-xs tracking-widest text-neon-cyan pt-2">IMPORT DES DONNÉES <span class="text-[10px] text-slate-500" x-text="dataSyncStatus"></span></h2>
       <h4 class="font-orbitron text-[10px] tracking-widest text-slate-400">GÉNÉRAL</h4>
       <!-- Data pack -->
       <details class="bg-void-800 border border-void-700 rounded-lg p-3">
@@ -1166,6 +1214,66 @@ const CLOUD = {
   }
 };
 
+/* ===================== Comptes (Firestore : warroom_users) ===================== */
+const ADMIN_USER = 'admin';
+async function sha256(t) {
+  const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t));
+  return Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2, '0')).join('');
+}
+const USERS = {
+  col() { return CLOUD.init() ? firebase.firestore().collection('warroom_users') : null; },
+  norm(u) { return (u || '').trim().toLowerCase(); }
+};
+
+/* ===================== Données importées (Firestore : warroom_data, compressées + découpées) ===================== */
+const CLOUDDATA = {
+  CHUNK: 700000,
+  col() { return CLOUD.init() ? firebase.firestore().collection('warroom_data') : null; },
+  async pack(obj) {
+    const stream = new Blob([JSON.stringify(obj)]).stream().pipeThrough(new CompressionStream('gzip'));
+    const buf = new Uint8Array(await new Response(stream).arrayBuffer());
+    let bin = ''; for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
+    return btoa(bin);
+  },
+  async unpack(b64) {
+    const bin = atob(b64); const buf = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+    const stream = new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'));
+    return JSON.parse(await new Response(stream).text());
+  },
+  async put(key, obj) {
+    const col = this.col(); if (!col) throw new Error('Firestore indisponible');
+    const old = await col.doc(key + '_meta').get();
+    const oldN = old.exists ? (old.data().chunks || 0) : 0;
+    const data = await this.pack(obj);
+    const n = Math.ceil(data.length / this.CHUNK) || 1;
+    for (let i = 0; i < n; i++) await col.doc(key + '_' + i).set({ data: data.slice(i * this.CHUNK, (i + 1) * this.CHUNK) });
+    for (let i = n; i < oldN; i++) await col.doc(key + '_' + i).delete();
+    const updatedAt = new Date().toISOString();
+    await col.doc(key + '_meta').set({ chunks: n, updatedAt });
+    localStorage.setItem('warroom_sync_' + key, updatedAt);
+  },
+  async get(key) {
+    const col = this.col(); if (!col) return null;
+    const meta = await col.doc(key + '_meta').get();
+    if (!meta.exists) return { deleted: true };
+    const { chunks, updatedAt } = meta.data();
+    if (localStorage.getItem('warroom_sync_' + key) === updatedAt) return null; // déjà à jour
+    let data = '';
+    for (let i = 0; i < chunks; i++) data += (await col.doc(key + '_' + i).get()).data().data;
+    localStorage.setItem('warroom_sync_' + key, updatedAt);
+    return { obj: await this.unpack(data) };
+  },
+  async del(key) {
+    const col = this.col(); if (!col) return;
+    const meta = await col.doc(key + '_meta').get();
+    const n = meta.exists ? (meta.data().chunks || 0) : 0;
+    for (let i = 0; i < n; i++) await col.doc(key + '_' + i).delete();
+    await col.doc(key + '_meta').delete();
+    localStorage.removeItem('warroom_sync_' + key);
+  }
+};
+
 function warRoomApp() {
   return {
     gameSystem: '40k',
@@ -1188,6 +1296,107 @@ function warRoomApp() {
     aStatus: '',
     aosPackRaw: '',
     aosPackStatus: '',
+    user: null, loginUser: '', loginPwd: '', loginError: '', loginBusy: false,
+    users: [], usersStatus: '', newUser: '', newPwd: '', newRole: 'user', usersUnsub: null,
+    dataSyncStatus: '',
+
+    isAdmin() { return !!this.user && this.user.role === 'admin'; },
+    async login() {
+      this.loginError = ''; this.loginBusy = true;
+      try {
+        const name = USERS.norm(this.loginUser);
+        if (name === ADMIN_USER) {
+          if (this.loginPwd !== SETTINGS_PASSWORD) throw new Error('Identifiants incorrects.');
+          this.user = { username: ADMIN_USER, role: 'admin' };
+        } else {
+          const col = USERS.col(); if (!col) throw new Error('Connexion Firestore indisponible.');
+          const doc = await col.doc(name).get();
+          if (!name || !doc.exists || doc.data().passwordHash !== await sha256(name + ':' + this.loginPwd)) throw new Error('Identifiants incorrects.');
+          this.user = { username: name, role: doc.data().role || 'user' };
+        }
+        localStorage.setItem('warroom_user', JSON.stringify(this.user));
+        this.loginPwd = ''; this.loginUser = '';
+        if (this.isAdmin()) this.watchUsers();
+      } catch (e) { this.loginError = e.message || 'Erreur de connexion.'; }
+      this.loginBusy = false;
+    },
+    logout() {
+      this.user = null; localStorage.removeItem('warroom_user');
+      if (this.usersUnsub) { this.usersUnsub(); this.usersUnsub = null; }
+      this.closeSettings();
+    },
+    async restoreSession() {
+      try {
+        const u = JSON.parse(localStorage.getItem('warroom_user') || 'null');
+        if (!u) return;
+        if (u.username === ADMIN_USER) { this.user = u; this.watchUsers(); return; }
+        const col = USERS.col(); if (!col) { this.user = u; return; }
+        const doc = await col.doc(u.username).get();
+        if (!doc.exists) { localStorage.removeItem('warroom_user'); return; } // compte supprimé
+        this.user = { username: u.username, role: doc.data().role || 'user' };
+        if (this.isAdmin()) this.watchUsers();
+      } catch (e) { console.warn(e); }
+    },
+    watchUsers() {
+      const col = USERS.col(); if (!col || this.usersUnsub) return;
+      this.usersUnsub = col.onSnapshot(snap => {
+        this.users = snap.docs.map(d => ({ username: d.id, role: d.data().role || 'user' })).sort((a, b) => a.username.localeCompare(b.username));
+      }, err => { console.warn(err); this.usersStatus = '✗ Lecture des comptes impossible (règles Firestore ?)'; });
+    },
+    async createUser() {
+      const name = USERS.norm(this.newUser);
+      if (!/^[a-z0-9._-]{2,32}$/.test(name)) { this.usersStatus = '✗ Identifiant invalide (lettres, chiffres, . _ -)'; return; }
+      if (name === ADMIN_USER) { this.usersStatus = '✗ Identifiant réservé'; return; }
+      if ((this.newPwd || '').length < 4) { this.usersStatus = '✗ Mot de passe trop court (4 caractères min.)'; return; }
+      try {
+        const col = USERS.col();
+        if ((await col.doc(name).get()).exists) { this.usersStatus = '✗ Ce compte existe déjà'; return; }
+        await col.doc(name).set({ role: this.newRole, passwordHash: await sha256(name + ':' + this.newPwd), createdAt: new Date().toISOString() });
+        this.usersStatus = '✓ Compte « ' + name + ' » créé'; this.newUser = ''; this.newPwd = ''; this.newRole = 'user';
+      } catch (e) { this.usersStatus = '✗ ' + (e.message || e); }
+    },
+    async resetUserPwd(u) {
+      const p = prompt('Nouveau mot de passe pour « ' + u.username + ' » :');
+      if (!p) return;
+      if (p.length < 4) { this.usersStatus = '✗ Mot de passe trop court'; return; }
+      try { await USERS.col().doc(u.username).update({ passwordHash: await sha256(u.username + ':' + p) }); this.usersStatus = '✓ Mot de passe modifié'; }
+      catch (e) { this.usersStatus = '✗ ' + (e.message || e); }
+    },
+    async toggleRole(u) {
+      try { await USERS.col().doc(u.username).update({ role: u.role === 'admin' ? 'user' : 'admin' }); }
+      catch (e) { this.usersStatus = '✗ ' + (e.message || e); }
+    },
+    async deleteUser(u) {
+      if (!confirm('Supprimer le compte « ' + u.username + ' » ?')) return;
+      try { await USERS.col().doc(u.username).delete(); this.usersStatus = '✓ Compte supprimé'; }
+      catch (e) { this.usersStatus = '✗ ' + (e.message || e); }
+    },
+
+    // Récupère depuis Firestore les données importées (40k, AoS, packs JSON) si plus récentes
+    async pullCloudData() {
+      try {
+        const w = await CLOUDDATA.get('waha');
+        if (w && w.obj) { await WAHA.save(w.obj); WAHA.setDB(w.obj); this.wStatus = '✓ ' + WAHA.info(w.obj) + ' chargées (cloud)'; }
+        else if (w && w.deleted && localStorage.getItem('warroom_sync_waha')) { await WAHA.clear(); WAHA.db = null; localStorage.removeItem('warroom_sync_waha'); this.wStatus = ''; }
+        const a = await CLOUDDATA.get('aos');
+        if (a && a.obj) { await AOS.save(a.obj); AOS.setDB(a.obj); this.aStatus = '✓ ' + AOS.info(a.obj) + ' chargés (cloud)'; }
+        else if (a && a.deleted && localStorage.getItem('warroom_sync_aos')) { await AOS.clear(); AOS.db = null; localStorage.removeItem('warroom_sync_aos'); this.aStatus = ''; }
+        const col = CLOUDDATA.col();
+        if (col) {
+          const p = await col.doc('packs').get();
+          if (p.exists) {
+            const d = p.data();
+            this.dataPackRaw = d.datapack || ''; localStorage.setItem('warroom_datapack', this.dataPackRaw);
+            this.aosPackRaw = d.aospack || ''; localStorage.setItem('warroom_aos_pack', this.aosPackRaw);
+          }
+        }
+        this.dataSyncStatus = '☁ synchronisé';
+      } catch (e) { console.warn('Firestore données :', e); this.dataSyncStatus = '☁ erreur de synchro'; }
+    },
+    async pushPacks() {
+      try { const col = CLOUDDATA.col(); if (col) await col.doc('packs').set({ datapack: this.dataPackRaw || '', aospack: this.aosPackRaw || '', updatedAt: new Date().toISOString() }); }
+      catch (e) { console.warn(e); }
+    },
 
     init() {
       this.gameSystem = localStorage.getItem('warroom_game') || '40k';
@@ -1198,11 +1407,14 @@ function warRoomApp() {
       AOS.load().then(db => { if (db && db.ws) { AOS.setDB(db); this.aStatus = '✓ ' + AOS.info(db) + ' chargés'; } }).catch(() => {});
       WAHA.load().then(db => { if (db && db.units) { WAHA.setDB(db); this.wStatus = '✓ ' + WAHA.info(db) + ' chargées'; } }).catch(() => {});
       this.$watch('gameSystem', v => localStorage.setItem('warroom_game', v));
+      this.restoreSession();
+      this.pullCloudData();
     },
 
     // ---------- Réglages protégés ----------
     openSettings() {
-      this.settingsUnlocked = false; this.pwdInput = ''; this.pwdError = '';
+      if (!this.isAdmin()) return;
+      this.settingsUnlocked = true; this.pwdInput = ''; this.pwdError = '';
       this.showSettings = true;
       this.$nextTick(() => { if (this.$refs.pwdField) this.$refs.pwdField.focus(); });
     },
@@ -1223,7 +1435,7 @@ function warRoomApp() {
           if (!p.motscles || typeof p.motscles !== 'object') throw new Error();
         }
         localStorage.setItem('warroom_datapack', this.dataPackRaw);
-        this.dataPackStatus = '✓ Pack enregistré';
+        this.dataPackStatus = '✓ Pack enregistré'; this.pushPacks();
       } catch (e) {
         this.dataPackStatus = '✗ JSON invalide (format attendu : {"motscles":{...}})';
       }
@@ -1231,7 +1443,7 @@ function warRoomApp() {
     clearDataPack() {
       this.dataPackRaw = '';
       localStorage.removeItem('warroom_datapack');
-      this.dataPackStatus = 'Pack réinitialisé';
+      this.dataPackStatus = 'Pack réinitialisé'; this.pushPacks();
     },
     getCustomKeys() {
       try {
@@ -1252,6 +1464,8 @@ function warRoomApp() {
         const db = WAHA.build(F);
         if (!db.units.length) throw new Error('aucune fiche exploitable (séparateur « | » ?)');
         await WAHA.save(db); WAHA.setDB(db);
+        this.wStatus = 'Envoi vers Firestore…';
+        try { await CLOUDDATA.put('waha', db); this.dataSyncStatus = '☁ synchronisé'; } catch (e) { console.warn(e); this.dataSyncStatus = '☁ envoi échoué (local uniquement)'; }
         const missing = ['datasheets_wargear.csv','datasheets_keywords.csv','datasheets_models_cost.csv','datasheets_abilities.csv','datasheets_leader.csv','detachments.csv','stratagems.csv','detachment_abilities.csv','enhancements.csv'].filter(n => !F[n]);
         this.wStatus = '✓ ' + WAHA.info(db) + ' importées' + (missing.length ? ' — fichiers absents (analyse partielle) : ' + missing.join(', ') : '');
       } catch (e) { this.wStatus = '✗ ' + (e.message || e); }
@@ -1267,21 +1481,23 @@ function warRoomApp() {
         const db = AOS.build(F);
         if (!db.ws.length && !db.rules.length) throw new Error('rien d\'exploitable (nommez les fichiers : Warscrolls, Weapons, Keywords, Abilities, Subfactions...)');
         await AOS.save(db); AOS.setDB(db);
+        this.aStatus = 'Envoi vers Firestore…';
+        try { await CLOUDDATA.put('aos', db); this.dataSyncStatus = '☁ synchronisé'; } catch (e) { console.warn(e); this.dataSyncStatus = '☁ envoi échoué (local uniquement)'; }
         this.aStatus = '✓ ' + AOS.info(db) + ' importés' + (db.ws.length ? '' : ' — aucun Warscrolls reconnu (analyse des unités indisponible)');
       } catch (e) { this.aStatus = '✗ ' + (e.message || e); }
       ev.target.value = '';
     },
-    async clearAos() { try { await AOS.clear(); } catch (e) {} AOS.db = null; AOS.pack = null; this.aStatus = 'Données AoS supprimées'; },
+    async clearAos() { try { await AOS.clear(); await CLOUDDATA.del('aos'); } catch (e) {} AOS.db = null; AOS.pack = null; this.aStatus = 'Données AoS supprimées'; },
     saveAosPack() {
       try {
         if (this.aosPackRaw.trim()) { const p = JSON.parse(this.aosPackRaw); if (!p.aos || typeof p.aos !== 'object') throw new Error(); }
         localStorage.setItem('warroom_aos_pack', this.aosPackRaw);
-        this.aosPackStatus = '✓ Pack AoS enregistré';
+        this.aosPackStatus = '✓ Pack AoS enregistré'; this.pushPacks();
       } catch (e) { this.aosPackStatus = '✗ JSON invalide (format attendu : {"aos":{...}})'; }
     },
-    clearAosPack() { this.aosPackRaw = ''; localStorage.removeItem('warroom_aos_pack'); this.aosPackStatus = 'Pack AoS réinitialisé'; },
+    clearAosPack() { this.aosPackRaw = ''; localStorage.removeItem('warroom_aos_pack'); this.aosPackStatus = 'Pack AoS réinitialisé'; this.pushPacks(); },
     async clearWaha() {
-      try { await WAHA.clear(); } catch (e) {}
+      try { await WAHA.clear(); await CLOUDDATA.del('waha'); } catch (e) {}
       WAHA.db = null; location.reload();
     },
 
