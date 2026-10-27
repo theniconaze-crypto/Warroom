@@ -69,6 +69,11 @@
           class="flex items-center gap-2 text-xs font-mono px-3 py-2 rounded-lg border border-void-700 bg-void-800 hover:border-neon-cyan/50 hover:text-neon-cyan transition">
           <span>⚙</span><span class="hidden sm:inline">Réglages</span>
         </button>
+        <button @click="showFolders = true"
+          class="flex items-center gap-2 text-xs font-mono px-3 py-2 rounded-lg border border-void-700 bg-void-800 hover:border-neon-green/50 hover:text-neon-green transition">
+          <span>📁</span><span class="hidden sm:inline">Dossiers</span>
+          <span class="bg-void-700 px-1.5 py-0.5 rounded text-[10px]" x-text="folderNames().length"></span>
+        </button>
         <button @click="showHistory = true"
           class="flex items-center gap-2 text-xs font-mono px-3 py-2 rounded-lg border border-void-700 bg-void-800 hover:border-neon-cyan/50 hover:text-neon-cyan transition">
           <span>🕘</span><span class="hidden sm:inline">Historique</span>
@@ -328,6 +333,66 @@
     </template>
   </main>
 
+
+  <!-- ===================== FOLDER PICKER ===================== -->
+  <div x-show="folderPick" x-cloak @click.self="folderPick=null" class="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4">
+    <div class="w-full max-w-sm bg-void-900 border border-void-700 rounded-xl p-5 space-y-4" x-show="folderPick">
+      <h3 class="font-orbitron text-sm text-neon-green tracking-wide">RANGER DANS UN DOSSIER</h3>
+      <div x-show="folderNames().length">
+        <p class="text-[11px] font-mono text-slate-400 mb-2">Choisir un dossier existant</p>
+        <div class="flex flex-wrap gap-2">
+          <template x-for="f in folderNames()" :key="f">
+            <button @click="applyFolder(f)" class="text-xs font-mono px-3 py-1.5 rounded-lg border transition"
+              :class="folderPick && currentFolderOf(folderPick.id)===f ? 'border-neon-green text-neon-green bg-neon-green/10' : 'border-void-700 text-slate-300 hover:bg-void-700'" x-text="'📁 ' + f"></button>
+          </template>
+        </div>
+      </div>
+      <div>
+        <p class="text-[11px] font-mono text-slate-400 mb-2">Ou créer un nouveau dossier</p>
+        <form @submit.prevent="folderPick && folderPick.newName.trim() && applyFolder(folderPick.newName.trim())" class="flex gap-2">
+          <input :value="folderPick ? folderPick.newName : ''" @input="folderPick && (folderPick.newName=$event.target.value)" placeholder="Nom de l'équipe" class="flex-1 bg-void-800 border border-void-700 rounded-lg px-3 py-1.5 text-sm text-slate-200 font-mono">
+          <button type="submit" class="text-xs font-mono px-3 rounded-lg border border-neon-green/50 text-neon-green hover:bg-neon-green/10">Créer</button>
+        </form>
+      </div>
+      <div class="flex justify-between">
+        <button @click="applyFolder('')" class="text-[11px] font-mono text-slate-400 hover:text-neon-red">Retirer du dossier</button>
+        <button @click="folderPick=null" class="text-[11px] font-mono text-slate-400 hover:text-slate-200">Annuler</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== FOLDERS DRAWER ===================== -->
+  <div x-show="showFolders" x-transition.opacity @click="showFolders=false" class="fixed inset-0 bg-black/60 z-40"></div>
+  <div x-show="showFolders" class="fixed right-0 top-0 h-full w-full sm:w-[28rem] bg-void-900 border-l border-void-700 z-50 overflow-y-auto">
+    <div class="p-5 flex items-center justify-between border-b border-void-700 sticky top-0 bg-void-900">
+      <h3 class="font-orbitron text-sm text-neon-green tracking-wide">DOSSIERS</h3>
+      <button @click="showFolders=false" class="text-slate-500 hover:text-slate-200">✕</button>
+    </div>
+    <div class="p-5 space-y-4">
+      <template x-if="folderNames().length===0"><p class="text-xs text-slate-500 font-mono">Aucun dossier. Rangez une analyse depuis l'historique avec le bouton 📁 Dossier.</p></template>
+      <template x-for="g in historyGroups()" :key="'f-'+g.name">
+        <div class="bg-void-800 border border-void-700 rounded-xl p-3 space-y-2">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-sm font-semibold text-neon-green" x-text="(g.name ? '📁 ' + g.name : '📄 Sans dossier') + ' (' + g.items.length + ')'"></span>
+            <div class="flex gap-1" x-show="g.name">
+              <button @click="renameFolder(g.name)" class="text-[11px] font-mono text-slate-300 border border-void-700 rounded px-2 py-0.5 hover:bg-void-700">✎ Renommer</button>
+              <button @click="deleteFolder(g.name)" class="text-[11px] font-mono text-neon-red border border-neon-red/30 rounded px-2 py-0.5 hover:bg-neon-red/10">🗑 Supprimer</button>
+            </div>
+          </div>
+          <template x-for="h in g.items" :key="'fi-'+h.id">
+            <div class="flex items-center gap-2 bg-void-900 rounded-lg px-2 py-1.5">
+              <div class="flex-1 min-w-0">
+                <div class="text-xs text-slate-200 truncate" x-text="h.titre || h.faction"></div>
+                <div class="text-[10px] font-mono text-slate-500 truncate" x-text="(h.system==='40k'?'40K':'AOS') + ' · ' + (h.faction||'') + ' · 👤 ' + (h.createdBy||'inconnu')"></div>
+              </div>
+              <button @click="openHistoryItem(h.id); showFolders=false" class="text-[11px] font-mono text-neon-green border border-neon-green/30 rounded px-2 py-0.5">Ouvrir</button>
+              <button @click="moveHistoryItem(h.id)" class="text-[11px] font-mono text-slate-300 border border-void-700 rounded px-2 py-0.5">Déplacer</button>
+            </div>
+          </template>
+        </div>
+      </template>
+    </div>
+  </div>
   <!-- ===================== HISTORY DRAWER ===================== -->
   <div x-show="showHistory" x-transition.opacity @click="showHistory=false" class="fixed inset-0 bg-black/60 z-40"></div>
   <div x-show="showHistory" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
@@ -1295,7 +1360,7 @@ function warRoomApp() {
     error: '',
     report: null,
     history: [],
-    showHistory: false,
+    showHistory: false, showFolders: false, folderPick: null,
     HISTORY_MAX: 30,
     cloudStatus: '',
     showSettings: false,
@@ -1390,9 +1455,17 @@ function warRoomApp() {
         const w = await CLOUDDATA.get('waha');
         if (w && w.obj) { await WAHA.save(w.obj); WAHA.setDB(w.obj); this.wStatus = '✓ ' + WAHA.info(w.obj) + ' chargées (cloud)'; }
         else if (w && w.deleted && localStorage.getItem('warroom_sync_waha')) { await WAHA.clear(); WAHA.db = null; localStorage.removeItem('warroom_sync_waha'); this.wStatus = ''; }
+        else if (w && w.deleted) { // jamais envoyées : on pousse les données locales vers Firestore
+          const lw = await WAHA.load().catch(() => null);
+          if (lw && lw.units) { this.wStatus = 'Envoi des données 40k vers Firestore…'; await CLOUDDATA.put('waha', lw); this.wStatus = '✓ ' + WAHA.info(lw) + ' (envoyées sur le cloud)'; }
+        }
         const a = await CLOUDDATA.get('aos');
         if (a && a.obj) { await AOS.save(a.obj); AOS.setDB(a.obj); this.aStatus = '✓ ' + AOS.info(a.obj) + ' chargés (cloud)'; }
         else if (a && a.deleted && localStorage.getItem('warroom_sync_aos')) { await AOS.clear(); AOS.db = null; localStorage.removeItem('warroom_sync_aos'); this.aStatus = ''; }
+        else if (a && a.deleted) {
+          const la = await AOS.load().catch(() => null);
+          if (la && la.ws) { this.aStatus = 'Envoi des données AoS vers Firestore…'; await CLOUDDATA.put('aos', la); this.aStatus = '✓ ' + AOS.info(la) + ' (envoyés sur le cloud)'; }
+        }
         const col = CLOUDDATA.col();
         if (col) {
           const p = await col.doc('packs').get();
@@ -1477,9 +1550,10 @@ function warRoomApp() {
         if (!db.units.length) throw new Error('aucune fiche exploitable (séparateur « | » ?)');
         await WAHA.save(db); WAHA.setDB(db);
         this.wStatus = 'Envoi vers Firestore…';
-        try { await CLOUDDATA.put('waha', db); this.dataSyncStatus = '☁ synchronisé'; } catch (e) { console.warn(e); this.dataSyncStatus = '☁ envoi échoué (local uniquement)'; }
+        let cloudMsg = ' — ☁ envoyé sur Firestore';
+        try { await CLOUDDATA.put('waha', db); this.dataSyncStatus = '☁ synchronisé'; } catch (e) { console.warn(e); cloudMsg = ' — ⚠ ENVOI FIRESTORE ÉCHOUÉ (données sur ce poste uniquement) : ' + (e.message || e); this.dataSyncStatus = '☁ envoi échoué (local uniquement)'; }
         const missing = ['datasheets_wargear.csv','datasheets_keywords.csv','datasheets_models_cost.csv','datasheets_abilities.csv','datasheets_leader.csv','detachments.csv','stratagems.csv','detachment_abilities.csv','enhancements.csv'].filter(n => !F[n]);
-        this.wStatus = '✓ ' + WAHA.info(db) + ' importées' + (missing.length ? ' — fichiers absents (analyse partielle) : ' + missing.join(', ') : '');
+        this.wStatus = '✓ ' + WAHA.info(db) + ' importées' + (missing.length ? ' — fichiers absents (analyse partielle) : ' + missing.join(', ') : '') + cloudMsg;
       } catch (e) { this.wStatus = '✗ ' + (e.message || e); }
       ev.target.value = '';
     },
@@ -1494,8 +1568,9 @@ function warRoomApp() {
         if (!db.ws.length && !db.rules.length) throw new Error('rien d\'exploitable (nommez les fichiers : Warscrolls, Weapons, Keywords, Abilities, Subfactions...)');
         await AOS.save(db); AOS.setDB(db);
         this.aStatus = 'Envoi vers Firestore…';
-        try { await CLOUDDATA.put('aos', db); this.dataSyncStatus = '☁ synchronisé'; } catch (e) { console.warn(e); this.dataSyncStatus = '☁ envoi échoué (local uniquement)'; }
-        this.aStatus = '✓ ' + AOS.info(db) + ' importés' + (db.ws.length ? '' : ' — aucun Warscrolls reconnu (analyse des unités indisponible)');
+        let cloudMsg = ' — ☁ envoyé sur Firestore';
+        try { await CLOUDDATA.put('aos', db); this.dataSyncStatus = '☁ synchronisé'; } catch (e) { console.warn(e); cloudMsg = ' — ⚠ ENVOI FIRESTORE ÉCHOUÉ : ' + (e.message || e); this.dataSyncStatus = '☁ envoi échoué (local uniquement)'; }
+        this.aStatus = '✓ ' + AOS.info(db) + ' importés' + (db.ws.length ? '' : ' — aucun Warscrolls reconnu (analyse des unités indisponible)') + cloudMsg;
       } catch (e) { this.aStatus = '✗ ' + (e.message || e); }
       ev.target.value = '';
     },
@@ -1837,11 +1912,17 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
       const v = prompt('Nouveau nom de la liste :', h.titre || '');
       if (v !== null && v.trim()) this._updateHistory(id, { titre: v.trim() });
     },
-    moveHistoryItem(id) {
-      const h = this.history.find(x => x.id === id); if (!h) return;
-      const existing = [...new Set(this.history.map(x => x.folder).filter(Boolean))];
-      const v = prompt('Nom du dossier (équipe)' + (existing.length ? '\nExistants : ' + existing.join(', ') : '') + '\nLaisser vide pour retirer du dossier :', h.folder || '');
-      if (v !== null) this._updateHistory(id, { folder: v.trim() });
+    folderNames() { return [...new Set(this.history.map(x => (x.folder||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'fr')); },
+    currentFolderOf(id) { const h = this.history.find(x => x.id === id); return h ? (h.folder||'') : ''; },
+    moveHistoryItem(id) { this.folderPick = { id, newName: '' }; },
+    applyFolder(name) { if (!this.folderPick) return; this._updateHistory(this.folderPick.id, { folder: name }); this.folderPick = null; },
+    renameFolder(old) {
+      const v = prompt('Nouveau nom du dossier :', old); if (v === null || !v.trim() || v.trim() === old) return;
+      this.history.filter(h => h.folder === old).forEach(h => this._updateHistory(h.id, { folder: v.trim() }));
+    },
+    deleteFolder(name) {
+      if (!confirm('Supprimer le dossier « ' + name + ' » ? Les analyses seront conservées, sans dossier.')) return;
+      this.history.filter(h => h.folder === name).forEach(h => this._updateHistory(h.id, { folder: '' }));
     },
     deleteHistoryItem(id) {
       this.history = this.history.filter(h => h.id !== id);
