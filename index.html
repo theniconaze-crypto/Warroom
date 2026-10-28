@@ -253,7 +253,7 @@
                       <span class="font-semibold text-slate-100 text-sm" x-text="u.unite"></span>
                       <span class="text-[10px] font-mono text-slate-500 whitespace-nowrap" x-text="u.pts + ' pts'"></span>
                     </div>
-                    <p class="text-[11px] text-neon-amber/80 font-mono" x-text="u.role"></p>
+                    <p x-show="u.role" class="text-[11px] text-neon-amber/80 font-mono" x-text="u.role"></p>
                     <ul class="mt-1 space-y-1">
                       <template x-for="(a,ai) in arr(u.aptitudes)" :key="'pa'+ai">
                         <li x-data="{o:false}" class="text-xs text-slate-400">
@@ -283,7 +283,7 @@
                       <span class="font-semibold text-slate-100 text-sm" x-text="u.unite"></span>
                       <span class="text-[10px] font-mono text-slate-500 whitespace-nowrap" x-text="u.pts + ' pts'"></span>
                     </div>
-                    <p class="text-[11px] text-neon-cyan/80 font-mono" x-text="u.role"></p>
+                    <p x-show="u.role" class="text-[11px] text-neon-cyan/80 font-mono" x-text="u.role"></p>
                     <ul class="mt-1 space-y-1">
                       <template x-for="(a,ai) in arr(u.aptitudes)" :key="'sa'+ai">
                         <li x-data="{o:false}" class="text-xs text-slate-400">
@@ -313,7 +313,7 @@
                       <span class="font-semibold text-slate-100 text-sm" x-text="u.unite"></span>
                       <span class="text-[10px] font-mono text-slate-500 whitespace-nowrap" x-text="u.pts + ' pts'"></span>
                     </div>
-                    <p class="text-[11px] text-neon-red/80 font-mono" x-text="u.role"></p>
+                    <p x-show="u.role" class="text-[11px] text-neon-red/80 font-mono" x-text="u.role"></p>
                     <ul class="mt-1 space-y-1">
                       <template x-for="(a,ai) in arr(u.aptitudes)" :key="'la'+ai">
                         <li x-data="{o:false}" class="text-xs text-slate-400">
@@ -1070,15 +1070,23 @@ const SM_CHAPTERS = [
 ];
 
 const ROLE_KEYS = {
-  antichar: ['lascannon','canon laser','melta','fuseur','multi-melta','multifuseur','railgun','rail ','haywire','lance de','dark lance','blaster','canon à distorsion','distorsion','brightlance','lance éclatante','missile krak','krak','canon d\'assaut lourd','volcano','turbo-laser','canon magma','exorcist missile','canon sismique','anti-tank','antichar','harpon','canon jumelé perforant','gauss destructor','canon à induction','ion lourd','fusion'],
-  antihorde: ['flamer','lance-flammes','heavy bolter','bolter lourd','gatling','minigun','canon rotatif','shuriken','catapulte shuriken','frag','blast','déflagration','mortier','mortar','grenade launcher','lance-grenades','burst cannon','canon rafale','stubber','mitrailleuse','autocannon','autocanon','canon automatique','bombardier','artillerie','battle cannon','canon de bataille','scatter','torrent','warpflame','volkite'],
-  melee: ['chainsword','épée tronçonneuse','power fist','poing énergétique','thunder hammer','marteau tonnerre','claw','griffe','talon','glaive','halberd','hallebarde','greatblade','épée','sword','axe','hache','maul','masse','eviscerator','éviscérateur','crozius','lames','blades','corps à corps','mêlée','melee','fangs','crocs','mandibles','pince','scythe','faux','warpick','pioche'],
-  tough: ['terminator','gravis','dreadnought','land raider','tank','char ','blindé','monolith','monolithe','knight','chevalier','titan','stonehorn','mega-gargant','gargant','monstre','monster','behemoth','invulnérable','invul','bouclier','shield','aegis','storm shield','artificer','thématique 2+','mortarion','magnus','greater daemon','grand démon','c\'tan','ctan','stegadon','leviadon','treelord','magmadroth','maw-krusha','zombie dragon','terrorgheist','steam tank','ironclad','immortis','varanguard','bullgryn','custodian','paladin'],
-  fast: ['jump pack','réacteur dorsal','bike','moto','jetbike','speeder','land speeder','cavalry','cavalerie','cavalier','charger','vertus','outrider','reaver','hellion','scourge','ailes','winged','fly','vol','voleur','gargoyle','terradon','ripperdactyl','khinerai','prosecutor','stormdrake','pusgoyle','slickblade','seeker','squighog','mournfang','deathrider','kavalos','morrsarr','ishlaen','dawnrider','spiterider','hexwraith','transport','rhino','raider','venom','trukk','chimera','wave serpent','devilfish','frigate','gunhauler','sentinel','ridgerunner','sagitaur'],
-  scoring: ['intercessor','guardsmen','garde ','cadian','catachan','neophyte','cultist','cultiste','termagant','hormagaunt','boyz','gretchin','grot','clanrat','zombie','squelette','skeleton','chainrasp','mortek','ghoul','goule','warrior','guerrier','vulkite','arkanaut','dryad','skink','namarti','thrall','bloodreaver','marauder','maraudeur','kairic','plaguebearer','daemonette','bloodletter','horror','stabbas','shootas','glutton','hobgrot','gutrippa','ardboy','troupe','battleline','ligne','fire warrior','pathfinder','kabalite','wych','guardian','dire avenger','hearthkyn','vindictor','liberator','freeguild','fusilier','battle sister','sœur de bataille','skitarii','ranger','vanguard','legionnaire','plague marine','rubric','immortal','warriors'],
-  leader: ['captain','capitaine','lieutenant','chaplain','aumônier','librarian','archiviste','commander','commandeur','lord','seigneur','warboss','big mek','overlord','archon','succubus','farseer','autarch','patriarch','magus','primus','abbesse','canoness','chanoinesse','marshal','maréchal','master','maître','prince','roi','king','queen','reine','boss','tyrant','tyran','hive tyrant','broodlord','shadowseer','troupe master','admiral','amiral','runefather','runeson','megaboss','loonboss','frostlord','ghoul king','abhorrant','wight king','vampire lord','knight of shrouds','katakros','morathi','teclis','alarielle','archaon','gordrakk','skragrott','mannfred','neferata','sigvald','glutos','yndrasta','celestine','ghazghkull','szarekh','trajann','draigo','ahriman','angron','mortarion','magnus','abaddon','belakor','be\'lakor','general','général','hero','héros'],
-  psychic: ['psyker','psychique','librarian','archiviste','sorcerer','sorcier','zoanthrope','neurothrope','farseer','warlock','grey seer','wizard','mage','magicien','slann','grey knight','magister','gaunt summoner','curseling','shaman','chamane','seer','prophète','weirdboy','spiritseer','haruspex non','arcane','sort','spell','lore','manifestation','prêtre','priest','slaughterpriest','hag queen','boneshaper','necromancer','nécromancien','branchwraith','shardspeaker','soulscryer','khemist','alchemite']
+  antichar: ['lascannon','canon laser','melta','fuseur','multi-melta','multifuseur','railgun','haywire','dark lance','canon à distorsion','distorsion','brightlance','lance éclatante','missile krak','krak','canon d\'assaut lourd','volcano','turbo-laser','canon magma','exorcist missile','canon sismique','anti-tank','antichar','canon jumelé perforant','gauss destructor','canon à induction','ion lourd'],
+  antihorde: ['flamer','lance-flammes','heavy bolter','bolter lourd','gatling','minigun','canon rotatif','catapulte shuriken','mortier','mortar','grenade launcher','lance-grenades','burst cannon','canon rafale','battle cannon','canon de bataille','warpflame','volkite'],
+  melee: ['chainsword','épée tronçonneuse','power fist','poing énergétique','thunder hammer','marteau tonnerre','halberd','hallebarde','greatblade','eviscerator','éviscérateur','crozius','berzerker','berserker','death company','wulfen','blood claws','thunderwolf','incubi','bladeguard','howling banshee','striking scorpion'],
+  tough: ['terminator','gravis','dreadnought','land raider','monolith','monolithe','stonehorn','mega-gargant','gargant','mortarion','magnus','greater daemon','grand démon','c\'tan','ctan','stegadon','leviadon','treelord','magmadroth','maw-krusha','zombie dragon','terrorgheist','steam tank','ironclad','immortis','varanguard','bullgryn','custodian','paladin','leman russ','baneblade','imperial knight','knight paladin','knight errant','knight crusader','knight warden','dreadknight','hierophant'],
+  fast: ['jump pack','réacteur dorsal','bike','moto','jetbike','speeder','land speeder','cavalry','cavalerie','vertus','outrider','hellion','gargoyle','terradon','ripperdactyl','khinerai','prosecutor','stormdrake','pusgoyle','slickblade','squighog','mournfang','deathrider','kavalos','morrsarr','ishlaen','dawnrider','spiterider','hexwraith','swooping hawk','windrider','ravenwing'],
+  scoring: ['intercessor','guardsmen','cadian','catachan','neophyte','cultist','cultiste','termagant','hormagaunt','boyz','gretchin','clanrat','zombie','squelette','skeleton','chainrasp','mortek','ghoul','goule','vulkite','arkanaut','dryad','skink','namarti','bloodreaver','marauder','maraudeur','kairic','plaguebearer','daemonette','bloodletter','stabbas','shootas','glutton','hobgrot','gutrippa','ardboy','fire warrior','pathfinder','kabalite','guardian','dire avenger','hearthkyn','vindictor','liberator','freeguild','fusilier','battle sister','sœur de bataille','skitarii','legionnaire','plague marine','rubric','immortal','necron warrior','warrior phalanx'],
+  leader: ['captain','capitaine','lieutenant','chaplain','aumônier','librarian','archiviste','commander','commandeur','lord','seigneur','warboss','big mek','overlord','archon','succubus','farseer','autarch','patriarch','magus','primus','abbesse','canoness','chanoinesse','marshal','maréchal','hive tyrant','broodlord','shadowseer','troupe master','admiral','amiral','runefather','runeson','megaboss','loonboss','frostlord','ghoul king','abhorrant','wight king','vampire lord','knight of shrouds','katakros','morathi','teclis','alarielle','archaon','gordrakk','skragrott','mannfred','neferata','sigvald','glutos','yndrasta','celestine','ghazghkull','szarekh','trajann','draigo','ahriman','angron','mortarion','magnus','abaddon','belakor','be\'lakor','daemon prince'],
+  psychic: ['psyker','psychique','librarian','archiviste','sorcerer','sorcier','zoanthrope','neurothrope','farseer','warlock','grey seer','wizard','slann','magister','gaunt summoner','curseling','shaman','chamane','weirdboy','spiritseer','slaughterpriest']
 };
+
+/* Un mot-clé ne compte que comme mot entier (pas en milieu de mot) ; le pluriel simple est toléré */
+const _kwCache = {};
+function kwMatch(text, k) {
+  let r = _kwCache[k];
+  if (!r) { const esc = k.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); r = _kwCache[k] = new RegExp('(?<![a-zà-ÿ0-9])' + esc + '(?:s|x|es)?(?![a-zà-ÿ0-9])', 'i'); }
+  return r.test(text);
+}
 
 /* Commentaires garantis cohérents avec la note (générés DEPUIS la note) */
 const COMMENT_BANK = {
@@ -1119,7 +1127,7 @@ function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, Math.round(v))); }
    Datasheets_leader, Last_update. Constantes de calibrage ajustables dans CAL.
    ========================================================= */
 const WAHA = (() => {
-  const CAL = { kK:400, kL:40, kD:80, kOC:60, thAC:2.0, thAH:5.5, thML:3.5, thTG:11, thSC:6, covMin:0.4 };
+  const CAL = { kK:400, kL:40, kD:80, kOC:60, thAC:2.0, thAH:5.5, thML:3.5, thTG:11, thSC:6, covMin:0.4, roleMin:1.3, roleMax:2 };
   const BM = { H:{T:9,sv:3,W:12,inv:0}, E:{T:4,sv:3,W:2,inv:0}, Ho:{T:3,sv:5,W:1,inv:0} };
   const strip = s => String(s||'').replace(/<[^>]*>/g,' ').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/\s+/g,' ').trim();
   const norm = s => String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/’/g,"'").replace(/[^a-z0-9' ]+/g,' ').replace(/\s+/g,' ').trim();
@@ -1219,9 +1227,10 @@ const WAHA = (() => {
   function rolesOf(d, x, pts) {   // rôles classés par intensité (ratio au seuil), 3 maximum + commandement/psychique
     const p = pts/100, kw = d.kw.join(' '), ab = d.ab.join(' ');
     const R = { antichar:(x.out.R.H+x.out.M.H)/p/CAL.thAC, antihorde:x.out.R.Ho/p/CAL.thAH, melee:x.out.M.E/p/CAL.thML, tough:(x.at+x.inf/3)/2/p/CAL.thTG,
-      fast:(x.M >= 10 || /\bfly\b|mounted|beasts/.test(kw) || /deep strike|infiltrators|scouts|teleport/.test(ab)) ? 1.2 : 0,
-      scoring:Math.max(x.OC*x.n/p/CAL.thSC, d.kw.includes('battleline') ? 1.1 : 0) };
-    const r = Object.entries(R).filter(e => e[1] >= 1).sort((a,b) => b[1]-a[1]).slice(0,3).map(e => e[0]), main = r[0] || null;
+      fast:(x.M >= 10 || /\bfly\b|mounted|beasts/.test(kw) || /deep strike|teleport/.test(ab)) ? 1.5 : 0,
+      scoring:Math.max(x.OC*x.n/p/CAL.thSC, d.kw.includes('battleline') ? 1.5 : 0) };
+    // seuls les rôles nettement marqués sont retenus (2 max) ; sinon aucun rôle
+    const r = Object.entries(R).filter(e => e[1] >= CAL.roleMin).sort((a,b) => b[1]-a[1]).slice(0,CAL.roleMax).map(e => e[0]), main = r[0] || null;
     if (d.kw.includes('character')) r.push('leader');
     if (d.kw.includes('psyker')) r.push('psychic');
     return { roles:r, main };
@@ -1496,8 +1505,8 @@ const AOS = (() => {
         .sort((a,b) => b.E-a.E).slice(0, n === 1 ? 3 : 99).forEach((v,i) => { const k = n === 1 || i > 0 ? 1 : n; for (const b in v) o[ty][b] += v[b]*k; });
       const kH = (o.R.H+o.M.H)*BMP.H, kE = (o.R.E+o.M.E)*BMP.E, kHo = (o.R.Ho+o.M.Ho)*BMP.Ho, kw = w.kw.join(' '), ab = w.ab.join(' ');
       const R = { antichar:maxD >= 3 ? (o.R.H+o.M.H)/p/CAL.thAC : 0, antihorde:(o.R.Ho+o.M.Ho)/p/CAL.thAH, melee:o.M.E/p/CAL.thML, tough:(at+inf/3)/2/p/CAL.thTG,
-        fast:(w.mv >= 10 || /\bfly\b/.test(kw) || /teleport|deploy/.test(ab)) ? 1.2 : 0, scoring:w.ctl*n/p/CAL.thSC };
-      const r = Object.entries(R).filter(e => e[1] >= 1).sort((a,b) => b[1]-a[1]).slice(0,3).map(e => e[0]);
+        fast:(w.mv >= 10 || /\bfly\b/.test(kw) || /teleport/.test(ab)) ? 1.5 : 0, scoring:w.ctl*n/p/CAL.thSC };
+      const r = Object.entries(R).filter(e => e[1] >= WAHA.CAL.roleMin).sort((a,b) => b[1]-a[1]).slice(0,WAHA.CAL.roleMax).map(e => e[0]);
       u.dxMain = r[0] || null;
       if (/\bhero\b/.test(kw)) { r.push('leader'); t.heroes++; } if (/wizard|priest/.test(kw)) r.push('psychic');
       u.dx = w; u.dxRoles = r; nm++; cov += u.pts; fp[w.f] = (fp[w.f]||0) + u.pts;
@@ -1552,20 +1561,95 @@ const CLOUD = {
     try { return { id: d.id, date: d.date, system: d.system, faction: d.faction, titre: d.titre, createdBy: d.createdBy || '', folder: d.folder || '', rawList: d.rawList, report: JSON.parse(d.reportJson) }; }
     catch (e) { return null; }
   },
-  async push(h) {
-    if (!this.col) return;
-    try { await this.col.doc(h.id).set(this.toDoc(h)); }
-    catch (e) { console.warn('Firestore : échec de l\'enregistrement', e); }
+  // ---- Suppressions fiables : pierres tombales + file d'attente locale ----
+  // Les ids supprimés sont mémorisés dans warroom_data/deleted_history (partagé entre tous les postes),
+  // afin qu'aucun poste (même avec une vieille copie locale ou une ancienne version de l'outil) ne puisse les ressusciter.
+  TOMB_DOC: 'deleted_history',
+  tomb: new Set(),
+  tombRef() { return firebase.firestore().collection('warroom_data').doc(this.TOMB_DOC); },
+  async loadTombs() {
+    const d = await this.tombRef().get();
+    this.tomb = new Set(d.exists ? Object.keys(d.data() || {}) : []);
+  },
+  pendingGet() { try { return JSON.parse(localStorage.getItem('warroom_pending_del') || '[]'); } catch (e) { return []; } },
+  pendingSet(a) { try { localStorage.setItem('warroom_pending_del', JSON.stringify([...new Set(a)])); } catch (e) {} },
+  isDead(id) { return this.tomb.has(id) || this.pendingGet().includes(id); },
+  // ids déjà vus dans le cloud depuis ce poste (null = jamais initialisé)
+  syncedGet() { try { return JSON.parse(localStorage.getItem('warroom_synced_ids') || 'null'); } catch (e) { return null; } },
+  syncedAdd(ids) {
+    try {
+      const s = new Set(this.syncedGet() || []); ids.forEach(i => s.add(i));
+      localStorage.setItem('warroom_synced_ids', JSON.stringify([...s].slice(-500)));
+    } catch (e) {}
+  },
+  async push(h, opts) {
+    if (!this.col && !this.init()) return false;
+    if (this.isDead(h.id)) return false;                       // jamais de ré-écriture d'une analyse supprimée
+    const edit = !!(opts && opts.edit);
+    try {
+      if (edit) await this.col.doc(h.id).update(this.toDoc(h)); // modification : ne recrée jamais un document supprimé
+      else await this.col.doc(h.id).set(this.toDoc(h));
+      this.syncedAdd([h.id]);
+      return true;
+    } catch (e) {
+      if (edit && e && e.code === 'not-found') return 'gone';
+      console.warn('Firestore : échec de l\'enregistrement', e);
+      return false;
+    }
   },
   async remove(ids) {
-    if (!this.col || !ids.length) return;
+    ids = [...new Set(ids)];
+    if (!ids.length) return true;
+    this.pendingSet([...this.pendingGet(), ...ids]);            // retenu tant que Firestore n'a pas confirmé
+    ids.forEach(id => this.tomb.add(id));
+    if (!this.col && !this.init()) return false;
+    const at = new Date().toISOString(); const t = {}; ids.forEach(id => { t[id] = at; });
+    const pTomb = this.tombRef().set(t, { merge: true }).catch(e => console.warn('Firestore : pierre tombale non enregistrée', e));
+    let ok = true;
     try {
       for (let i = 0; i < ids.length; i += 400) {
         const batch = firebase.firestore().batch();
         ids.slice(i, i + 400).forEach(id => batch.delete(this.col.doc(id)));
         await batch.commit();
       }
-    } catch (e) { console.warn('Firestore : échec de la suppression', e); }
+      this.pendingSet(this.pendingGet().filter(id => !ids.includes(id)));
+    } catch (e) { ok = false; console.warn('Firestore : échec de la suppression (réessai au prochain démarrage)', e); }
+    await pTomb;
+    return ok;
+  },
+  async flushPending() { const p = this.pendingGet(); if (p.length) return this.remove(p); return true; },
+  // Supprime TOUTES les analyses du cloud (pas seulement les 30 affichées)
+  async removeAll(knownIds) {
+    const ids = new Set(knownIds || []);
+    try {
+      let last = null;
+      for (let guard = 0; guard < 100; guard++) {
+        let q = this.col.orderBy(firebase.firestore.FieldPath.documentId()).limit(100);
+        if (last) q = q.startAfter(last);
+        const snap = await q.get();
+        if (snap.empty) break;
+        snap.docs.forEach(d => ids.add(d.id));
+        last = snap.docs[snap.docs.length - 1];
+        if (snap.size < 100) break;
+      }
+    } catch (e) { console.warn('Firestore : lecture complète impossible', e); }
+    return this.remove([...ids]);
+  },
+  // Supprime du cloud les analyses plus anciennes que la fenêtre affichée (plafond d'historique)
+  async purgeBeyond(lastDoc) {
+    if (!this.col || !lastDoc) return 0;
+    let n = 0;
+    try {
+      for (let guard = 0; guard < 20; guard++) {
+        const snap = await this.col.orderBy('date', 'desc').startAfter(lastDoc).limit(50).get();
+        if (snap.empty) break;
+        const ids = snap.docs.map(d => d.id);
+        if (!(await this.remove(ids))) break;
+        n += ids.length;
+      }
+    } catch (e) { console.warn('Firestore : purge des anciennes analyses impossible', e); }
+    if (n) console.info('Firestore : ' + n + ' ancienne(s) analyse(s) hors plafond supprimée(s)');
+    return n;
   }
 };
 
@@ -2043,7 +2127,7 @@ function warRoomApp() {
         u.roles = [];
         const weight = Math.max(1, u.pts / 100);
         for (const [cat, keys] of Object.entries(ROLE_KEYS)) {
-          if (keys.some(k => u.lower.includes(k))) {
+          if (keys.some(k => kwMatch(u.lower, k))) {
             cats[cat] += weight;
             u.roles.push(cat);
           }
@@ -2127,7 +2211,6 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
         const roleLabel = (u) => {
           const ML = { antichar:'Antichar', antihorde:'Anti-masse', melee:'Frappe mêlée', tough:'Enclume', fast:'Élément mobile', scoring:'Scoring' };
           if (u.dxMain) return (u.roles.includes('leader') ? 'Chef · ' : '') + ML[u.dxMain];
-          if (u.roles.includes('leader')) return 'Commandement';
           if (u.roles.includes('antichar')) return 'Antichar';
           if (u.roles.includes('tough')) return 'Enclume';
           if (u.roles.includes('melee')) return 'Frappe mêlée';
@@ -2135,7 +2218,7 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
           if (u.roles.includes('fast')) return 'Élément mobile';
           if (u.roles.includes('psychic')) return is40k ? 'Soutien psychique' : 'Soutien magique';
           if (u.roles.includes('scoring')) return 'Scoring';
-          return 'Polyvalent';
+          return '';
         };
         const sorted = [...units].sort((a,b) => b.pts - a.pts);
         const pivots = sorted.slice(0, Math.min(5, sorted.length)).map(u => ({
@@ -2144,7 +2227,7 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
           explication: `${u.pts} pts — ${Math.round(u.pts/totalPts*100)}% du budget. ` +
             (u.roles.length
               ? `Rôles détectés : ${u.roles.map(r => ({antichar:'antichar',antihorde:'anti-masse',melee:'mêlée',tough:'résilience',fast:'mobilité',scoring:'scoring',leader:'commandement',psychic:is40k?'psychique':'magie'}[r])).join(', ')}. Sa perte serait lourde de conséquences.`
-              : `Rôle non identifié par le dictionnaire (ajoutez un mot-clé via le pack de données pour affiner).`)
+              : `Aucun rôle marqué identifié.`)
         }));
 
         if (dxOn) sorted.slice(0, pivots.length).forEach((u, i) => { if (u.dxTxt) pivots[i].explication += ' ' + u.dxTxt; });
@@ -2365,35 +2448,75 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
       try { this.history = JSON.parse(localStorage.getItem('warroom_history') || '[]'); }
       catch (e) { this.history = []; }
     },
-    // Écoute temps réel de Firestore : fusionne le local avec le cloud, puis garde les deux alignés
+    // Écoute temps réel de Firestore : le cloud fait foi (les suppressions sont définitives), le local sert de cache
     startCloudSync() {
       try {
         if (!CLOUD.init()) { this.cloudStatus = '☁ SDK Firebase indisponible (mode local)'; return; }
         this.cloudStatus = '☁ Connexion…';
         let first = true;
-        CLOUD.col.orderBy('date', 'desc').limit(this.HISTORY_MAX).onSnapshot(snap => {
-          const remote = snap.docs.map(d => CLOUD.fromDoc(d.data())).filter(Boolean);
-          if (first) {
-            first = false;
-            // Première synchro : on envoie au cloud les analyses locales qui n'y sont pas encore
-            const remoteIds = new Set(remote.map(h => h.id));
-            const localOnly = this.history.filter(h => !remoteIds.has(h.id));
-            localOnly.forEach(h => CLOUD.push(h));
-            this.history = [...remote, ...localOnly]
-              .sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, this.HISTORY_MAX);
-          } else {
-            this.history = remote;
-          }
-          this.persistHistory();
-          this.cloudStatus = snap.metadata.fromCache ? '☁ Hors ligne (en attente de synchro)' : '☁ Synchronisé avec Firestore';
-        }, err => {
-          console.warn('Firestore :', err);
-          this.cloudStatus = '☁ Erreur Firestore (vérifier les règles de sécurité) — mode local';
-        });
+        CLOUD.flushPending(); // rejoue les suppressions qui n'avaient pas pu aboutir
+        const listen = () => {
+          CLOUD.col.orderBy('date', 'desc').limit(this.HISTORY_MAX).onSnapshot(snap => {
+            const remote = snap.docs.map(d => CLOUD.fromDoc(d.data())).filter(Boolean);
+            if (first) {
+              // Premier instantané issu du cache (hors ligne) = incomplet : on n'en conclut rien, on attend le serveur
+              if (snap.metadata.fromCache) { this.cloudStatus = '☁ Hors ligne (en attente de synchro)'; return; }
+              first = false;
+              this._firstMerge(snap, remote);
+            } else {
+              this._applyRemote(remote);
+            }
+            this.cloudStatus = snap.metadata.fromCache ? '☁ Hors ligne (en attente de synchro)' : '☁ Synchronisé avec Firestore';
+          }, err => {
+            console.warn('Firestore :', err);
+            this.cloudStatus = '☁ Erreur Firestore (vérifier les règles de sécurité) — mode local';
+          });
+          // Suivi en direct des suppressions faites depuis un autre poste
+          CLOUD.tombRef().onSnapshot(d => {
+            CLOUD.tomb = new Set(d.exists ? Object.keys(d.data() || {}) : []);
+            if (this._remoteLast) this._applyRemote(this._remoteLast);
+          }, e => console.warn('Firestore : pierres tombales', e));
+        };
+        CLOUD.loadTombs().catch(e => console.warn('Firestore : pierres tombales illisibles', e)).finally(listen);
       } catch (e) {
         console.warn(e);
         this.cloudStatus = '☁ Erreur de connexion Firestore — mode local';
       }
+    },
+    // Première synchro (serveur) : fusion prudente du local avec le cloud
+    _firstMerge(snap, remote) {
+      const remoteIds = new Set(remote.map(h => h.id));
+      const synced = CLOUD.syncedGet();                    // null = poste jamais synchronisé avec cette version
+      const seen = new Set(synced || []);
+      // résurrections par un ancien poste/une ancienne version : on les re-supprime
+      const deadRemote = remote.filter(h => CLOUD.isDead(h.id)).map(h => h.id);
+      if (deadRemote.length) CLOUD.remove(deadRemote);
+      // analyses locales absentes du cloud
+      let localOnly = this.history.filter(h => !remoteIds.has(h.id) && !CLOUD.isDead(h.id));
+      // déjà vues dans le cloud puis disparues = supprimées depuis un autre poste : on ne les renvoie pas
+      localOnly = localOnly.filter(h => !seen.has(h.id));
+      if (synced === null && localOnly.length &&
+          !confirm(localOnly.length + ' analyse(s) présente(s) sur ce poste mais absente(s) de Firestore (peut-être supprimées depuis).\n\nOK = les renvoyer vers Firestore\nAnnuler = les retirer de ce poste')) {
+        localOnly = [];
+      }
+      const merged = [...remote.filter(h => !CLOUD.isDead(h.id)), ...localOnly]
+        .sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, this.HISTORY_MAX);
+      const keep = new Set(merged.map(h => h.id));
+      localOnly.filter(h => keep.has(h.id)).forEach(h => CLOUD.push(h));
+      CLOUD.syncedAdd(remote.filter(h => !CLOUD.isDead(h.id)).map(h => h.id));
+      this._remoteLast = merged;
+      this.history = merged;
+      this.persistHistory();
+      // anciennes analyses hors plafond : supprimées aussi du cloud, sinon elles « remontent » à chaque suppression
+      if (snap.size >= this.HISTORY_MAX) CLOUD.purgeBeyond(snap.docs[snap.docs.length - 1]);
+    },
+    _applyRemote(remote) {
+      this._remoteLast = remote;
+      const dead = remote.filter(h => CLOUD.isDead(h.id));
+      if (dead.length) CLOUD.remove(dead.map(h => h.id));  // document ressuscité : re-supprimé
+      this.history = remote.filter(h => !CLOUD.isDead(h.id));
+      CLOUD.syncedAdd(this.history.map(h => h.id));
+      this.persistHistory();
     },
     persistHistory() {
       localStorage.setItem('warroom_history', JSON.stringify(this.history.slice(0, this.HISTORY_MAX)));
@@ -2409,9 +2532,11 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
         rawList, report: reportData
       };
       this.history.unshift(entry);
-      if (this.history.length > this.HISTORY_MAX) this.history = this.history.slice(0, this.HISTORY_MAX);
+      let trimmed = [];
+      if (this.history.length > this.HISTORY_MAX) { trimmed = this.history.slice(this.HISTORY_MAX); this.history = this.history.slice(0, this.HISTORY_MAX); }
       this.persistHistory();
       CLOUD.push(entry); // synchronisation Firestore
+      if (trimmed.length) CLOUD.remove(trimmed.map(h => h.id)); // les plus anciennes sont aussi supprimées du cloud
       return entry.id;
     },
     openHistoryItem(id) {
@@ -2435,7 +2560,15 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
     _updateHistory(id, patch) {
       const h = this.history.find(x => x.id === id); if (!h) return;
       Object.assign(h, patch); this.history = [...this.history];
-      this.persistHistory(); CLOUD.push(h);
+      this.persistHistory();
+      CLOUD.push(h, { edit: true }).then(r => {
+        if (r === 'gone') { // supprimée ailleurs entre-temps : on ne la recrée pas
+          this.history = this.history.filter(x => x.id !== id); this.persistHistory();
+          this.cloudStatus = '☁ Analyse supprimée depuis un autre poste : retirée d\'ici';
+        } else if (r === false) {
+          this.cloudStatus = '⚠ Modification non envoyée à Firestore';
+        }
+      });
     },
     renameHistoryItem(id) {
       if (!this.canEdit()) return;
@@ -2460,16 +2593,23 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
     deleteHistoryItem(id) {
       if (!this.canDelete()) return;
       this.history = this.history.filter(h => h.id !== id);
+      if (this.currentHistoryId === id) this.currentHistoryId = null;
       this.persistHistory();
-      CLOUD.remove([id]);
+      this._cloudDelete(() => CLOUD.remove([id]));
+    },
+    async _cloudDelete(fn) {
+      this.cloudStatus = '☁ Suppression sur Firestore…';
+      const ok = await fn();
+      this.cloudStatus = ok ? '☁ Synchronisé avec Firestore' : '⚠ Suppression en attente : elle sera renvoyée à la prochaine connexion';
     },
     clearAllHistory() {
       if (!this.canDelete()) return;
       if (!confirm("Supprimer tout l'historique ?")) return;
       const ids = this.history.map(h => h.id);
       this.history = [];
+      this.currentHistoryId = null;
       this.persistHistory();
-      CLOUD.remove(ids);
+      this._cloudDelete(() => CLOUD.removeAll(ids)); // supprime TOUT le cloud, pas seulement les 30 affichées
     },
     formatDate(iso) {
       const d = new Date(iso);
