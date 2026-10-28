@@ -531,7 +531,7 @@
               <div class="py-2.5 text-xs font-mono space-y-2">
                 <div class="flex items-center justify-between gap-3">
                   <span class="text-slate-100 font-semibold break-all min-w-0">
-                    <span x-text="u.username"></span>
+                    <span x-text="u.username" :class="u.active ? '' : 'line-through text-slate-500'"></span>
                     <span class="text-neon-cyan font-normal" x-show="u.role === 'admin'">· ADMIN</span>
                   </span>
                   <span class="flex items-center gap-1.5 shrink-0 text-[11px] text-slate-400" :title="lastLoginInfo(u.lastLoginAt).title">
@@ -540,6 +540,10 @@
                   </span>
                 </div>
                 <div class="flex flex-wrap gap-2">
+                  <button @click="toggleActive(u)" class="px-2.5 py-1 rounded border transition whitespace-nowrap font-semibold"
+                    :class="u.active ? 'border-neon-green/50 text-neon-green hover:bg-neon-green/10' : 'border-neon-red/50 text-neon-red hover:bg-neon-red/10'"
+                    :title="u.active ? 'Compte actif — cliquer pour désactiver (connexion bloquée)' : 'Compte désactivé — cliquer pour réactiver'"
+                    x-text="u.active ? 'Compte : ACTIF' : 'Compte : INACTIF'"></button>
                   <button x-show="u.role !== 'admin'" @click="toggleCanAnalyze(u)" class="px-2.5 py-1 rounded border transition whitespace-nowrap"
                     :class="u.canAnalyze ? 'border-neon-green/50 text-neon-green hover:bg-neon-green/10' : 'border-neon-red/50 text-neon-red hover:bg-neon-red/10'"
                     :title="u.canAnalyze ? 'Peut générer des analyses — cliquer pour retirer' : 'Ne peut pas générer d\'analyses — cliquer pour autoriser'"
@@ -1566,6 +1570,7 @@ function warRoomApp() {
         if (!this.user || this.user.username !== name) return;
         if (!doc.exists) { this.logout(); return; }
         const d = doc.data();
+        if (d.active === false) { this.logout(); this.loginError = 'Compte désactivé.'; return; }
         this.user = { username: name, role: d.role || 'user', canAnalyze: d.canAnalyze !== false, canEdit: d.canEdit !== false, canDelete: d.canDelete !== false };
         localStorage.setItem('warroom_user', JSON.stringify(this.user));
         if (this.isAdmin()) this.watchUsers();
@@ -1582,6 +1587,7 @@ function warRoomApp() {
           const col = USERS.col(); if (!col) throw new Error('Connexion Firestore indisponible.');
           const doc = await col.doc(name).get();
           if (!name || !doc.exists || doc.data().passwordHash !== await sha256(name + ':' + this.loginPwd)) throw new Error('Identifiants incorrects.');
+          if (doc.data().active === false) throw new Error('Compte désactivé. Contactez un administrateur.');
           this.user = { username: name, role: doc.data().role || 'user', canAnalyze: doc.data().canAnalyze !== false, canEdit: doc.data().canEdit !== false, canDelete: doc.data().canDelete !== false };
         }
         localStorage.setItem('warroom_user', JSON.stringify(this.user));
@@ -1605,7 +1611,7 @@ function warRoomApp() {
         if (u.username === ADMIN_USER) { this.user = u; this.watchUsers(); return; }
         const col = USERS.col(); if (!col) { this.user = u; return; }
         const doc = await col.doc(u.username).get();
-        if (!doc.exists) { localStorage.removeItem('warroom_user'); return; } // compte supprimé
+        if (!doc.exists || doc.data().active === false) { localStorage.removeItem('warroom_user'); return; } // compte supprimé ou désactivé
         this.user = { username: u.username, role: doc.data().role || 'user', canAnalyze: doc.data().canAnalyze !== false, canEdit: doc.data().canEdit !== false, canDelete: doc.data().canDelete !== false };
         localStorage.setItem('warroom_user', JSON.stringify(this.user));
         if (this.isAdmin()) this.watchUsers();
@@ -1616,7 +1622,7 @@ function warRoomApp() {
     watchUsers() {
       const col = USERS.col(); if (!col || this.usersUnsub) return;
       this.usersUnsub = col.onSnapshot(snap => {
-        this.users = snap.docs.map(d => ({ username: d.id, role: d.data().role || 'user', canAnalyze: d.data().canAnalyze !== false, canEdit: d.data().canEdit !== false, canDelete: d.data().canDelete !== false, lastLoginAt: d.data().lastLoginAt || '' })).sort((a, b) => a.username.localeCompare(b.username));
+        this.users = snap.docs.map(d => ({ username: d.id, role: d.data().role || 'user', canAnalyze: d.data().canAnalyze !== false, canEdit: d.data().canEdit !== false, canDelete: d.data().canDelete !== false, active: d.data().active !== false, lastLoginAt: d.data().lastLoginAt || '' })).sort((a, b) => a.username.localeCompare(b.username));
       }, err => { console.warn(err); this.usersStatus = '✗ Lecture des comptes impossible (règles Firestore ?)'; });
     },
     async createUser() {
@@ -1627,7 +1633,7 @@ function warRoomApp() {
       try {
         const col = USERS.col();
         if ((await col.doc(name).get()).exists) { this.usersStatus = '✗ Ce compte existe déjà'; return; }
-        await col.doc(name).set({ role: this.newRole, canAnalyze: !!this.newCanAnalyze, canEdit: !!this.newCanEdit, canDelete: !!this.newCanDelete, passwordHash: await sha256(name + ':' + this.newPwd), createdAt: new Date().toISOString() });
+        await col.doc(name).set({ role: this.newRole, canAnalyze: !!this.newCanAnalyze, canEdit: !!this.newCanEdit, canDelete: !!this.newCanDelete, active: true, passwordHash: await sha256(name + ':' + this.newPwd), createdAt: new Date().toISOString() });
         this.usersStatus = '✓ Compte « ' + name + ' » créé'; this.newUser = ''; this.newPwd = ''; this.newRole = 'user'; this.newCanAnalyze = true; this.newCanEdit = true; this.newCanDelete = true;
       } catch (e) { this.usersStatus = '✗ ' + (e.message || e); }
     },
@@ -1640,6 +1646,11 @@ function warRoomApp() {
     },
     async toggleRole(u) {
       try { await USERS.col().doc(u.username).update({ role: u.role === 'admin' ? 'user' : 'admin' }); }
+      catch (e) { this.usersStatus = '✗ ' + (e.message || e); }
+    },
+    async toggleActive(u) {
+      if (u.active && !confirm('Désactiver le compte « ' + u.username + ' » ? Il ne pourra plus se connecter.')) return;
+      try { await USERS.col().doc(u.username).update({ active: !u.active }); this.usersStatus = '✓ Compte « ' + u.username + ' » ' + (u.active ? 'désactivé' : 'réactivé'); }
       catch (e) { this.usersStatus = '✗ ' + (e.message || e); }
     },
     async toggleCanAnalyze(u) {
