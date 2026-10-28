@@ -166,26 +166,6 @@
     <template x-if="report && !loading">
       <div x-ref="reportContent" class="space-y-6 bg-void-950 p-1">
 
-        <!-- Header -->
-        <section class="bg-void-900 border border-void-700 rounded-xl p-5">
-          <h2 class="font-orbitron text-lg text-slate-100" x-text="report.titre_rapport"></h2>
-          <div class="flex flex-wrap gap-2 mt-2 mb-4">
-            <span class="text-[10px] font-mono px-2 py-1 rounded-full bg-neon-green/10 border border-neon-green/30 text-neon-green" x-text="report.faction_detectee + (report.faction_forcee ? ' (forcée)' : '')"></span>
-            <span x-show="report.chapitre" class="text-[10px] font-mono px-2 py-1 rounded-full bg-neon-amber/10 border border-neon-amber/30 text-neon-amber" x-text="'Chapitre : ' + report.chapitre + (report.chapitre_force ? ' (forcé)' : '')"></span>
-            <span class="text-[10px] font-mono px-2 py-1 rounded-full bg-neon-cyan/10 border border-neon-cyan/30 text-neon-cyan" x-text="report.edition"></span>
-            <span class="text-[10px] font-mono px-2 py-1 rounded-full bg-void-700 text-slate-400" x-text="report.total_points + ' pts détectés — ' + report.nb_unites + ' unités'"></span>
-          </div>
-          <div class="flex items-start gap-3 bg-neon-amber/10 border border-neon-amber/30 rounded-lg p-3 mb-4">
-            <span class="text-neon-amber font-mono text-xs mt-0.5">⚠</span>
-            <p class="text-xs text-slate-300 leading-relaxed">
-              Analyse générée par le moteur heuristique local (classification par mots-clés, sans IA ni données de règles embarquées).
-              Aucun nom de règle, stratagème ou profil n'est cité — consultez
-              <a href="https://wahapedia.ru" target="_blank" rel="noopener" class="text-neon-cyan underline">Wahapedia</a>
-              pour les règles exactes de l'édition en cours.
-            </p>
-          </div>
-          <p class="text-sm text-slate-400 leading-relaxed" x-text="report.resume_executif"></p>
-        </section>
 
 
 
@@ -253,7 +233,7 @@
         <!-- Aptitudes clés des unités clés -->
         <section class="bg-void-900 border border-void-700 rounded-xl p-5">
           <h3 class="font-orbitron text-sm text-neon-cyan mb-1 tracking-wide">APTITUDES CLÉS DES UNITÉS CLÉS</h3>
-          <p class="text-[11px] font-mono text-slate-500 mb-4">Personnages, soutiens et unités à fort potentiel de létalité — aptitudes issues des fiches importées.</p>
+          <p class="text-[11px] font-mono text-slate-500 mb-4">Personnages, soutiens et unités offensives — cliquez sur une aptitude pour afficher sa règle.</p>
           <template x-if="!report.unites_cles || (!arr(report.unites_cles.personnages).length && !arr(report.unites_cles.supports).length && !arr(report.unites_cles.letalite).length)">
             <p class="text-xs font-mono text-slate-500">Aucune unité clé identifiée. Importez les fiches (CSV Wahapedia / AoS) pour obtenir le détail des aptitudes.</p>
           </template>
@@ -270,7 +250,14 @@
                     <p class="text-[11px] text-neon-amber/80 font-mono" x-text="u.role"></p>
                     <ul class="mt-1 space-y-1">
                       <template x-for="(a,ai) in arr(u.aptitudes)" :key="'pa'+ai">
-                        <li class="text-xs text-slate-400 flex gap-2"><span class="text-neon-amber">▸</span><span x-text="a"></span></li>
+                        <li x-data="{o:false}" class="text-xs text-slate-400">
+                          <button type="button" @click="o=!o" class="flex gap-2 w-full text-left items-start hover:text-slate-200 transition">
+                            <span class="inline-block transition-transform text-neon-amber" :class="(o||exporting) ? 'rotate-90' : ''">▸</span>
+                            <span class="flex-1" x-text="a.nom"></span>
+                            <span class="text-[10px] text-slate-600" x-text="(o||exporting) ? '▲' : '▼'"></span>
+                          </button>
+                          <p x-show="o||exporting" x-transition class="mt-1 ml-4 pl-2 border-l border-void-700 text-[11px] leading-relaxed text-slate-400" x-text="a.texte || 'Texte de la règle indisponible — réimportez les fiches (CSV).'"></p>
+                        </li>
                       </template>
                     </ul>
                     <p x-show="u.detail" class="text-[10px] font-mono text-slate-500 mt-1" x-text="u.detail"></p>
@@ -293,7 +280,14 @@
                     <p class="text-[11px] text-neon-cyan/80 font-mono" x-text="u.role"></p>
                     <ul class="mt-1 space-y-1">
                       <template x-for="(a,ai) in arr(u.aptitudes)" :key="'sa'+ai">
-                        <li class="text-xs text-slate-400 flex gap-2"><span class="text-neon-cyan">▸</span><span x-text="a"></span></li>
+                        <li x-data="{o:false}" class="text-xs text-slate-400">
+                          <button type="button" @click="o=!o" class="flex gap-2 w-full text-left items-start hover:text-slate-200 transition">
+                            <span class="inline-block transition-transform text-neon-cyan" :class="(o||exporting) ? 'rotate-90' : ''">▸</span>
+                            <span class="flex-1" x-text="a.nom"></span>
+                            <span class="text-[10px] text-slate-600" x-text="(o||exporting) ? '▲' : '▼'"></span>
+                          </button>
+                          <p x-show="o||exporting" x-transition class="mt-1 ml-4 pl-2 border-l border-void-700 text-[11px] leading-relaxed text-slate-400" x-text="a.texte || 'Texte de la règle indisponible — réimportez les fiches (CSV).'"></p>
+                        </li>
                       </template>
                     </ul>
                     <p x-show="u.detail" class="text-[10px] font-mono text-slate-500 mt-1" x-text="u.detail"></p>
@@ -316,7 +310,14 @@
                     <p class="text-[11px] text-neon-red/80 font-mono" x-text="u.role"></p>
                     <ul class="mt-1 space-y-1">
                       <template x-for="(a,ai) in arr(u.aptitudes)" :key="'la'+ai">
-                        <li class="text-xs text-slate-400 flex gap-2"><span class="text-neon-red">▸</span><span x-text="a"></span></li>
+                        <li x-data="{o:false}" class="text-xs text-slate-400">
+                          <button type="button" @click="o=!o" class="flex gap-2 w-full text-left items-start hover:text-slate-200 transition">
+                            <span class="inline-block transition-transform text-neon-red" :class="(o||exporting) ? 'rotate-90' : ''">▸</span>
+                            <span class="flex-1" x-text="a.nom"></span>
+                            <span class="text-[10px] text-slate-600" x-text="(o||exporting) ? '▲' : '▼'"></span>
+                          </button>
+                          <p x-show="o||exporting" x-transition class="mt-1 ml-4 pl-2 border-l border-void-700 text-[11px] leading-relaxed text-slate-400" x-text="a.texte || 'Texte de la règle indisponible — réimportez les fiches (CSV).'"></p>
+                        </li>
                       </template>
                     </ul>
                     <p x-show="u.detail" class="text-[10px] font-mono text-slate-500 mt-1" x-text="u.detail"></p>
@@ -497,6 +498,12 @@
       <button @click="showFolders=false" class="text-slate-500 hover:text-slate-200">✕</button>
     </div>
     <div class="p-5 space-y-4">
+      <div x-show="history.length>0 && canEdit() && canAnalyze()" class="flex items-center gap-3">
+        <button @click="refreshAll()" :disabled="refreshing"
+          title="Relance l'analyse de toutes les listes enregistrées avec les données et règles actuelles"
+          class="text-xs font-mono px-3 py-2 rounded-lg border border-neon-amber/50 text-neon-amber hover:bg-neon-amber/10 transition disabled:opacity-40">↻ Tout rafraîchir</button>
+        <span class="text-[10px] font-mono text-slate-500" x-text="refreshStatus"></span>
+      </div>
       <template x-if="folderNames().length===0"><p class="text-xs text-slate-500 font-mono">Aucun dossier. Rangez une analyse depuis l'historique avec le bouton 📁 Dossier.</p></template>
       <template x-for="g in historyGroups()" :key="'f-'+g.name">
         <div class="bg-void-800 border border-void-700 rounded-xl p-3 space-y-2">
@@ -509,6 +516,8 @@
           </div>
           <template x-for="h in g.items" :key="'fi-'+h.id">
             <div class="flex items-center gap-2 bg-void-900 rounded-lg px-2 py-1.5">
+              <button x-show="canEdit() && canAnalyze()" @click="refreshItem(h.id)" :disabled="refreshing" title="Rafraîchir cette analyse"
+                class="text-sm leading-none w-7 h-7 shrink-0 flex items-center justify-center rounded border border-neon-amber/40 text-neon-amber hover:bg-neon-amber/10 disabled:opacity-40">↻</button>
               <div class="flex-1 min-w-0">
                 <div class="text-xs text-slate-200 truncate" x-text="h.titre || h.faction"></div>
                 <div class="text-[10px] font-mono text-slate-500 truncate" x-text="(h.system==='40k'?'40K':'AOS') + ' · ' + (h.faction||'') + ' · 👤 ' + (h.createdBy||'inconnu')"></div>
@@ -1133,10 +1142,10 @@ const WAHA = (() => {
 
   function build(F) {
     const T = n => parseCSV(F[n]);
-    const fac = {}, ab = {}, U = {}, wg = {};
+    const fac = {}, ab = {}, U = {}, wg = {}, FA = {};
     T('factions.csv').forEach(r => fac[r.id] = r.name);
     T('abilities.csv').forEach(r => ab[r.id] = { n:r.name, d:strip(r.description) });
-    T('datasheets.csv').forEach(r => { if (r.virtual !== 'true') U[r.id] = { id:r.id, n:r.name, nl:norm(r.name), f:fac[r.faction_id]||'', role:r.role||'', mod:[], wp:[], kw:[], ab:[], fnp:0, cost:[], leads:[] }; });
+    T('datasheets.csv').forEach(r => { if (r.virtual !== 'true') U[r.id] = { id:r.id, n:r.name, nl:norm(r.name), f:fac[r.faction_id]||'', role:r.role||'', mod:[], wp:[], kw:[], ab:[], abx:[], fnp:0, cost:[], leads:[] }; });
     T('datasheets_models.csv').forEach(r => { const u = U[r.datasheet_id]; if (u) u.mod.push({ T:num(r.T), Sv:r.Sv, inv:r.inv_sv, W:num(r.W)||1, OC:num(r.OC), M:num(r.M) }); });
     T('datasheets_wargear.csv').forEach(r => {          // 1 seul profil (le premier) par ligne d'arme
       const u = U[r.datasheet_id]; if (!u) return;
@@ -1150,7 +1159,10 @@ const WAHA = (() => {
     T('datasheets_abilities.csv').forEach(r => {
       const u = U[r.datasheet_id]; if (!u) return;
       const a = r.ability_id && ab[r.ability_id], n = (a ? a.n : r.name) || '';
+      const dsc = ((a && a.d) || strip(r.description) || '').slice(0, 900);
       u.ab.push(norm(n));
+      if (/faction/i.test(r.type || '')) { if (u.f && n) { const L = FA[u.f] = FA[u.f] || []; if (!L.some(x => x.n === n)) L.push({ n, d:dsc }); } }
+      else if (n && !u.abx.some(x => x.n === n)) u.abx.push({ n, d:dsc });
       const m = (n+' '+(r.parameter||'')).match(/feel no pain\s*(\d)\+/i); if (m) u.fnp = Math.max(u.fnp, +m[1]);
     });
     T('datasheets_keywords.csv').forEach(r => { const u = U[r.datasheet_id]; if (u) u.kw.push(norm(r.keyword)); });
@@ -1162,7 +1174,7 @@ const WAHA = (() => {
     T('detachment_abilities.csv').forEach(r => { const d = D[r.detachment_id]; if (d) d.ab.push({ n:r.name, d:cut(r.description,600) }); });
     T('enhancements.csv').forEach(r => { const d = D[r.detachment_id]; if (d) d.en.push({ n:r.name, c:r.cost, d:cut(r.description,400) }); });
     const lu = T('last_update.csv')[0];
-    return { units:Object.values(U).filter(u => u.mod.length), det:Object.values(D), meta:{ last: lu ? lu.last_update : '' } };
+    return { units:Object.values(U).filter(u => u.mod.length), det:Object.values(D), facab:FA, meta:{ last: lu ? lu.last_update : '' } };
   }
 
   let IDX = null;
@@ -1222,7 +1234,7 @@ const WAHA = (() => {
       const kH = (x.out.R.H+x.out.M.H)*BMP.H, kE = (x.out.R.E+x.out.M.E)*BMP.E, kHo = (x.out.R.Ho+x.out.M.Ho)*BMP.Ho;
       u.dx = d; u.dxRoles = rr.roles; u.dxMain = rr.main; nm++; cov += u.pts; ids[d.id] = 1; fp[d.f] = (fp[d.f]||0) + u.pts; list.push({ u, d });
       t.kH += kH; t.kE += kE; t.kHo += kHo; t.at += x.at; t.inf += x.inf; t.oc += x.OC*x.n; t.mv += x.M*u.pts; if (rr.roles.includes('fast')) t.fast += u.pts;
-      u.dxTxt = `[Fiche ${d.n}] T${x.T} Sv${x.sv}${x.inv && x.inv !== '-' ? ' inv '+x.inv : ''} PV${x.W}×${x.n} OC${x.OC} — détruit ≈ ${Math.round(kH)} pts de chars lourds, ${Math.round(kE)} d'élites ou ${Math.round(kHo)} de hordes par round.`;
+      u.dxTxt = `[Fiche ${d.n}] T${x.T} Sv${x.sv}${x.inv && x.inv !== '-' ? ' inv '+x.inv : ''} PV${x.W}×${x.n} OC${x.OC}`;
     });
     if (!nm) return { cov:0, nm:0, nTot:units.length, miss, vulns:[], s:{}, txt:'Données Wahapedia chargées mais aucune unité de la liste n\'a été reconnue (vérifiez les noms).' };
     const k = 1000/cov, kk = { H:t.kH*k, E:t.kE*k, Ho:t.kHo*k }, K = (kk.H+kk.E+kk.Ho)/3, kAbs = (t.kH+t.kE+t.kHo)/3, oc = t.oc*k, fast = t.fast/cov, mv = t.mv/cov;
@@ -1237,12 +1249,12 @@ const WAHA = (() => {
       syner: Math.min(10, 2 + 1.1*chars.length*1000/cov + 2.5*(chars.length ? paired.length/chars.length : 0))
     };
     const vulns = [];
-    if (kk.H < 60) vulns.push(`Antichar insuffisant : ≈ ${Math.round(t.kH)} pts de chars lourds détruits par round seulement`);
-    if (kk.Ho < 200) vulns.push(`Anti-masse faible : ≈ ${Math.round(t.kHo)} pts de hordes détruits par round seulement`);
+    if (kk.H < 60) vulns.push(`Antichar insuffisant : peu d'outils contre les chars lourds`);
+    if (kk.Ho < 200) vulns.push(`Anti-masse faible : peu d'outils contre les hordes`);
     if (oc < 20) vulns.push(`Contrôle d'objectifs faible : ${Math.round(oc)} OC par 1000 pts`);
     if (orphans.length) vulns.push(`Personnages sans escorte compatible dans la liste : ${orphans.map(z => z.u.name).slice(0,3).join(', ')}`);
     const top = Object.entries(fp).sort((a,b) => b[1]-a[1])[0], pc = Math.round(cov/totalPts*100);
-    let txt = `Données Wahapedia (${info(api.db)}) : ${nm}/${units.length} unités reconnues, ${pc}% des points. Potentiel de destruction (plafond théorique : tir et mêlée cumulés, sans pertes ni malus) : ≈ ${Math.round(kAbs)} pts adverses détruits par round, soit ${Math.round(kAbs/20)}% d'une armée de 2000 pts (≈ ${(2000/Math.max(kAbs,1)).toFixed(1).replace('.',',')} rounds pour la détruire entièrement) — dont ${Math.round(t.kH)} pts de chars lourds, ${Math.round(t.kE)} d'élites et ${Math.round(t.kHo)} de hordes. Contrôle : ${Math.round(oc)} OC par 1000 pts.`;
+    let txt = `Données Wahapedia (${info(api.db)}) : ${nm}/${units.length} unités reconnues, ${pc}% des points. Contrôle : ${Math.round(oc)} OC par 1000 pts.`;
     if (cov/totalPts < CAL.covMin) txt += ' Couverture insuffisante : scores non fusionnés avec les données.';
     if (miss.length) txt += ` Non reconnues : ${miss.slice(0,5).join(', ')}.`;
     return { cov: cov/totalPts, nm, nTot:units.length, miss, vulns, s, txt, k:kk, faction: top && top[1]/cov >= .5 ? top[0] : null };
@@ -1433,13 +1445,13 @@ const AOS = (() => {
     const subOf = r => sub[g(r,'subfactionid','subfaction')] || g(r,'subfactionname','subfaction','formation','allegiance') || (/subfaction/.test(r._f) ? g(r,'name','title') : '');
     T.ws.forEach(r => { const n = g(r,'name','title','warscroll'); if (!n) return; const id = g(r,'id','warscrollid') || n;
       W[id] = Wn[WAHA.norm(n)] = { id, n, nl:WAHA.norm(n), f:facOf(r), pts:WAHA.num(g(r,'points','cost','pts')), mv:WAHA.num(g(r,'move','m')), hp:WAHA.num(g(r,'health','wounds','w'))||1,
-        sv:g(r,'save','sv'), ctl:WAHA.num(g(r,'control','oc')), models:parseInt(g(r,'models','unitsize','size','minsize'))||1, kw:[], ab:[], wp:[], ward:0 }; });
+        sv:g(r,'save','sv'), ctl:WAHA.num(g(r,'control','oc')), models:parseInt(g(r,'models','unitsize','size','minsize'))||1, kw:[], ab:[], abx:[], wp:[], ward:0 }; });
     const get = k => W[k] || Wn[WAHA.norm(k)];
     T.wp.forEach(r => { const w = get(g(r,'warscrollid','unitid','warscrollname','warscroll')); if (!w) return;
       w.wp.push({ n:g(r,'name','weapon'), t:parseInt(g(r,'range')) > 3 ? 'R' : 'M', a:WAHA.avg(g(r,'attacks','atk','a')), h:WAHA.pHit(g(r,'tohit','hit')), wd:WAHA.pHit(g(r,'towound','wound','wnd')), rnd:g(r,'rend','rnd'), d:WAHA.avg(g(r,'damage','dmg','d')) || 1 }); });
     T.kw.forEach(r => { const w = get(g(r,'warscrollid','unitid','warscroll')); if (w) w.kw.push(WAHA.norm(g(r,'keyword','name'))); });
     T.ab.forEach(r => { const w = get(g(r,'warscrollid','unitid','warscroll')); if (!w) return; const n = g(r,'name','title'), m = (n+' '+WAHA.strip(g(r,'description','text','effect'))).match(/ward\s*\(?(\d)\+/i);
-      w.ab.push(WAHA.norm(n)); if (m) w.ward = Math.max(w.ward, +m[1]); });
+      w.ab.push(WAHA.norm(n)); if (n && !w.abx.some(x => x.n === n)) w.abx.push({ n, d:WAHA.strip(g(r,'description','text','effect')).slice(0,700) }); if (m) w.ward = Math.max(w.ward, +m[1]); });
     const rules = T.rules.map(r => ({ n:g(r,'name','title'), d:WAHA.strip(g(r,'description','text','effect','rules','desc')), f:facOf(r), sub:subOf(r), ph:g(r,'phase','timing'), type:r._f })).filter(r => r.n && r.d);
     return { ws:Object.values(W).filter(w => w.n), rules, meta:{ files:Object.keys(F).length, rules:rules.length } };
   }
@@ -1484,18 +1496,18 @@ const AOS = (() => {
       if (/\bhero\b/.test(kw)) { r.push('leader'); t.heroes++; } if (/wizard|priest/.test(kw)) r.push('psychic');
       u.dx = w; u.dxRoles = r; nm++; cov += u.pts; fp[w.f] = (fp[w.f]||0) + u.pts;
       t.kH += kH; t.kE += kE; t.kHo += kHo; t.at += at; t.inf += inf; t.c += w.ctl*n; t.mv += w.mv*u.pts; if (r.includes('fast')) t.fast += u.pts;
-      u.dxTxt = `[Warscroll ${w.n}] Mvt ${w.mv} · Santé ${w.hp}×${n} · Sauv ${w.sv||'—'}${w.ward ? ' · Ward '+w.ward+'+' : ''} · Contrôle ${w.ctl} — détruit ≈ ${Math.round(kH)} pts de cibles sauv. 3+, ${Math.round(kE)} de sauv. 4+ ou ${Math.round(kHo)} de sauv. 5+ par round.`;
+      u.dxTxt = `[Warscroll ${w.n}] Mvt ${w.mv} · Santé ${w.hp}×${n} · Sauv ${w.sv||'—'}${w.ward ? ' · Ward '+w.ward+'+' : ''} · Contrôle ${w.ctl}`;
     });
     if (!nm) return { cov:0, nm:0, nTot:units.length, miss, vulns:[], s:{}, txt:'Données AoS chargées mais aucune unité reconnue (vérifiez les noms / fichiers Warscrolls).' };
     const k = 1000/cov, kk = { H:t.kH*k, E:t.kE*k, Ho:t.kHo*k }, K = (kk.H+kk.E+kk.Ho)/3, kAbs = (t.kH+t.kE+t.kHo)/3, sat = (x,kb) => 1 + 9*x/(x+kb), c = t.c*k, mv = t.mv/cov;
     const s = { letal:sat(K, WAHA.CAL.kK), resist:sat(((t.at+t.inf/3)/2)*k, CAL.kD),
       mobil:1 + 9*(.4*c/(c+CAL.kC) + .3*Math.min(1, t.fast/cov*2) + .3*Math.max(0, Math.min(1, (mv-5)/7))), syner:Math.min(10, 2 + 1.2*t.heroes*1000/cov) };
     const vulns = [];
-    if (kk.H < 60) vulns.push(`Peu d'impact contre les cibles bien sauvegardées (3+) : ≈ ${Math.round(t.kH)} pts détruits par round seulement`);
+    if (kk.H < 60) vulns.push(`Peu d'impact contre les cibles bien sauvegardées (3+)`);
     if (c < 15) vulns.push(`Contrôle d'objectifs faible : ${Math.round(c)} de Contrôle par 1000 pts`);
     const top = Object.entries(fp).sort((a,b) => b[1]-a[1])[0];
     return { cov:cov/totalPts, nm, nTot:units.length, miss, vulns, s, k:kk, faction: top && top[0] && top[1]/cov >= .5 ? top[0] : null,
-      txt:`Données AoS (${api.info(api.db)}) : ${nm}/${units.length} unités reconnues, ${Math.round(cov/totalPts*100)}% des points. Potentiel de destruction (plafond théorique : tir et mêlée cumulés, sans pertes ni malus) : ≈ ${Math.round(kAbs)} pts adverses détruits par round, soit ${Math.round(kAbs/20)}% d'une armée de 2000 pts (≈ ${(2000/Math.max(kAbs,1)).toFixed(1).replace('.',',')} rounds pour la détruire entièrement) — dont ${Math.round(t.kH)} pts de cibles sauv. 3+, ${Math.round(t.kE)} de sauv. 4+ et ${Math.round(t.kHo)} de sauv. 5+. Contrôle : ${Math.round(c)} par 1000 pts.` + (miss.length ? ` Non reconnues : ${miss.slice(0,5).join(', ')}.` : '') };
+      txt:`Données AoS (${api.info(api.db)}) : ${nm}/${units.length} unités reconnues, ${Math.round(cov/totalPts*100)}% des points. Contrôle : ${Math.round(c)} par 1000 pts.` + (miss.length ? ` Non reconnues : ${miss.slice(0,5).join(', ')}.` : '') };
   };
   api.save = db => WAHA.idb('readwrite', s => s.put(db, 'aos'));
   api.load = () => WAHA.idb('readonly', s => s.get('aos'));
@@ -1618,6 +1630,7 @@ function warRoomApp() {
     forcedChapter: '',
     newCanAnalyze: true, newCanEdit: true, newCanDelete: true, selfUnsub: null,
     currentHistoryId: null,
+    refreshing: false, refreshStatus: '',
     rawList: '',
     loading: false,
     exporting: false,
@@ -2105,10 +2118,13 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
         // Aptitudes clés des unités clés : personnages / supports / forte létalité
         const capAb = a => String(a || '').replace(/\b\w/g, c => c.toUpperCase());
         const aptOf = u => {
+          const seen = new Set();
+          const ax = (u.dx && Array.isArray(u.dx.abx) ? u.dx.abx : []).filter(a => a && a.n && !seen.has(a.n) && seen.add(a.n)).slice(0, 6).map(a => ({ nom: a.n, texte: a.d || '' }));
+          if (ax.length) return ax;
           const abs = (u.dx && Array.isArray(u.dx.ab) ? u.dx.ab : []).filter(Boolean).map(capAb);
-          if (abs.length) return abs.slice(0, 5);
+          if (abs.length) return abs.slice(0, 5).map(n => ({ nom: n, texte: '' }));
           const RL = { antichar:'Frappe antichar', antihorde:'Nettoyage de masse', melee:'Spécialiste mêlée', tough:'Grande résilience', fast:'Très mobile', scoring:'Contrôle d\'objectifs', leader:'Aptitudes de commandement', psychic:is40k ? 'Pouvoirs psychiques' : 'Magie / prières' };
-          return (u.roles || []).map(r => RL[r]).filter(Boolean).slice(0, 4);
+          return (u.roles || []).map(r => RL[r]).filter(Boolean).slice(0, 4).map(n => ({ nom: n, texte: '' }));
         };
         const keyUnit = u => ({ unite: u.name, pts: u.pts, role: roleLabel(u), aptitudes: aptOf(u), detail: u.dxTxt || '' });
         const byPts = (a, b) => b.pts - a.pts;
@@ -2131,8 +2147,16 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
             const abSec = (b.sections || []).find(s => /aptitude/i.test(s.titre));
             regles_armee.detachements.push({ nom: b.titre, meta: b.meta || '', aptitudes: (abSec ? abSec.items : []).map(it => ({ nom: it.nom, texte: it.texte })) });
           });
+          const FAB = WAHA.db && WAHA.db.facab;
+          if (regles_armee.armee && FAB) {
+            const nf = WAHA.norm(faction.name.split('(')[0]);
+            let fk = (!forced && dx && dx.faction && FAB[dx.faction]) ? dx.faction : null;
+            if (!fk) { const c = Object.keys(FAB).filter(k => { const nk = WAHA.norm(k); return nk && (nk === nf || nf.includes(nk) || nk.includes(nf)); }); fk = c.find(k => WAHA.norm(k) === nf) || c.sort((a, b) => b.length - a.length)[0] || null; }
+            if (fk) regles_armee.armee.aptitudes = FAB[fk].map(a => ({ nom: a.n, texte: a.d }));
+          }
+          if (regles_armee.armee && !regles_armee.armee.aptitudes.length) regles_armee.notes.push("Aptitudes d'armée indisponibles : (ré)importez les CSV Wahapedia (Datasheets_abilities.csv, Abilities.csv) depuis les réglages.");
           if (!regles_armee.detachements.length) regles_armee.notes.push('Aucun détachement reconnu dans la liste : indiquez son nom en en-tête (ex. « Detachment : … ») et importez les CSV Wahapedia des détachements.');
-          if (regles_armee.armee && !regles_armee.armee.style) regles_armee.notes.push('Faction identifiée via les fiches importées : pas de description d'armée dans le dictionnaire embarqué.');
+          if (regles_armee.armee && !regles_armee.armee.style) regles_armee.notes.push("Faction identifiée via les fiches importées : pas de description d'armée dans le dictionnaire embarqué.");
         } else {
           // AoS : aptitudes de faction et sous-factions issues du pack / des CSV importés
           const facBloc = (regles.blocs || []).find(b => /^Aptitudes de faction/.test(b.titre));
@@ -2192,7 +2216,7 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
         const matchups = is40k ? [
           { archetype:'Gunline / tir statique', evaluation: evalOf(Math.max(values[1], values[2])), details:`Dépend de votre capacité à encaisser (${values[1]}/10) ou à fermer la distance (${values[2]}/10).` },
           { archetype:'Mêlée agressive', evaluation: evalOf(Math.max(values[0], values[1])), details:`Votre létalité (${values[0]}/10) et votre tenue au choc (${values[1]}/10) détermineront l'échange.` },
-          { archetype:'Horde / saturation', evaluation: evalOf(hordeV), details:`Capacité anti-masse estimée : ${hordeV}/10` + ((dxOn && dx.k) ? ` (≈ ${Math.round(dx.k.Ho)} pts de hordes détruits par round et par 1000 pts).` : '.') },
+          { archetype:'Horde / saturation', evaluation: evalOf(hordeV), details:`Capacité anti-masse estimée : ${hordeV}/10.` },
           { archetype:'Contrôle de table / scoring', evaluation: evalOf(values[2]), details:`Votre mobilité & scoring (${values[2]}/10) face aux listes qui jouent la mission avant tout.` }
         ] : [
           { archetype:'Armée de tir / magie à distance', evaluation: evalOf(Math.max(values[1], values[2])), details:`Résilience (${values[1]}/10) ou vitesse de fermeture (${values[2]}/10) nécessaires.` },
@@ -2256,6 +2280,43 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
       } finally {
         this.loading = false;
       }
+    },
+
+    // Relance l'analyse d'une entrée de l'historique (liste d'origine, mêmes réglages) et met l'entrée à jour sans toucher à l'affichage courant
+    _refreshOne(id) {
+      const h = this.history.find(x => x.id === id);
+      if (!h || !h.rawList || !this.canEdit() || !this.canAnalyze()) return false;
+      const sv = { gs: this.gameSystem, rl: this.rawList, ff: this.forcedFaction, fc: this.forcedChapter, rp: this.report, cid: this.currentHistoryId };
+      this.gameSystem = h.system; this.rawList = h.rawList;
+      this.forcedFaction = (h.report && h.report.faction_forcee) || '';
+      this.forcedChapter = (h.report && h.report.chapitre_force && h.report.chapitre) || '';
+      this.analyze({ updateId: id });
+      const err = this.error, fresh = this.history.find(x => x.id === id);
+      this.gameSystem = sv.gs; this.rawList = sv.rl; this.forcedFaction = sv.ff; this.forcedChapter = sv.fc;
+      this.currentHistoryId = sv.cid;
+      this.report = (sv.cid === id && fresh && !err) ? fresh.report : sv.rp;
+      this.error = err ? ('Rafraîchissement impossible : ' + err) : '';
+      return !err;
+    },
+    async refreshItem(id) {
+      if (this.refreshing) return;
+      this.refreshing = true; this.refreshStatus = '↻ Rafraîchissement…';
+      await new Promise(r => setTimeout(r, 20));
+      this.refreshStatus = this._refreshOne(id) ? '✓ Analyse rafraîchie' : '✗ Échec (voir message d\'erreur)';
+      this.refreshing = false;
+    },
+    async refreshAll() {
+      if (this.refreshing || !this.history.length) return;
+      if (!confirm('Rafraîchir les ' + this.history.length + ' analyses avec les données actuelles ?')) return;
+      this.refreshing = true;
+      const ids = this.history.map(h => h.id); let ok = 0;
+      for (let i = 0; i < ids.length; i++) {
+        this.refreshStatus = '↻ ' + (i + 1) + ' / ' + ids.length + '…';
+        await new Promise(r => setTimeout(r, 20));
+        if (this._refreshOne(ids[i])) ok++;
+      }
+      this.refreshStatus = '✓ ' + ok + ' / ' + ids.length + ' analyses rafraîchies';
+      this.refreshing = false;
     },
 
     resetAll() { this.report = null; this.rawList = ''; this.error = ''; this.forcedFaction = ''; this.forcedChapter = ''; this.currentHistoryId = null; },
@@ -2387,6 +2448,7 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
       if (!this.report) return;
       this.exporting = true;
       try {
+        await this.$nextTick(); await new Promise(r => setTimeout(r, 80));
         const container = this.$refs.reportContent;
         if (!container) throw new Error("Contenu du rapport introuvable.");
         const sections = Array.from(container.querySelectorAll(':scope > section'));
