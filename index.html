@@ -187,43 +187,84 @@
           <p class="text-sm text-slate-400 leading-relaxed" x-text="report.resume_executif"></p>
         </section>
 
-        <!-- Scores -->
-        <section class="bg-void-900 border border-void-700 rounded-xl p-5">
-          <h3 class="font-orbitron text-sm text-neon-cyan mb-4 tracking-wide">TABLEAU DE BORD TACTIQUE</h3>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <template x-for="(s,i) in arr(report.scores)" :key="i">
-              <div class="bg-void-800 border border-void-700 rounded-xl p-4">
-                <div class="flex items-center justify-between mb-2">
-                  <span class="font-orbitron text-xs tracking-wide text-slate-300" x-text="s.label"></span>
-                  <span class="font-mono text-lg font-bold" :class="scoreColor(s.valeur)" x-text="s.valeur + '/10'"></span>
-                </div>
-                <div class="w-full h-2 bg-void-700 rounded-full overflow-hidden mb-2">
-                  <div class="h-full rounded-full" :class="scoreBarColor(s.valeur)" :style="'width:'+(s.valeur*10)+'%'"></div>
-                </div>
-                <p class="text-xs text-slate-400 leading-relaxed" x-text="s.commentaire"></p>
-              </div>
-            </template>
-          </div>
-          <div class="flex flex-wrap gap-4 text-[11px] text-slate-500 mt-4">
-            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-neon-green"></span> ≥7 Fort</span>
-            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-neon-amber"></span> 5-6 Correct</span>
-            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-neon-red"></span> ≤4 Faible</span>
-          </div>
-        </section>
 
-        <!-- Pivots -->
+        <!-- Aptitudes clés des unités clés -->
         <section class="bg-void-900 border border-void-700 rounded-xl p-5">
-          <h3 class="font-orbitron text-sm text-neon-cyan mb-4 tracking-wide">PIVOTS DE LISTE</h3>
-          <div class="space-y-3">
-            <template x-for="(p,i) in arr(report.pivots_de_liste)" :key="i">
-              <div class="bg-void-800 border border-void-700 rounded-xl p-4">
-                <div class="flex items-center justify-between mb-1">
-                  <span class="font-semibold text-neon-cyan" x-text="p.unite"></span>
-                  <span class="text-[10px] uppercase tracking-wide bg-void-700 px-2 py-0.5 rounded-full text-slate-300" x-text="p.role"></span>
-                </div>
-                <p class="text-xs text-slate-400" x-text="p.explication"></p>
+          <h3 class="font-orbitron text-sm text-neon-cyan mb-1 tracking-wide">APTITUDES CLÉS DES UNITÉS CLÉS</h3>
+          <p class="text-[11px] font-mono text-slate-500 mb-4">Personnages, soutiens et unités à fort potentiel de létalité — aptitudes issues des fiches importées.</p>
+          <template x-if="!report.unites_cles || (!arr(report.unites_cles.personnages).length && !arr(report.unites_cles.supports).length && !arr(report.unites_cles.letalite).length)">
+            <p class="text-xs font-mono text-slate-500">Aucune unité clé identifiée. Importez les fiches (CSV Wahapedia / AoS) pour obtenir le détail des aptitudes.</p>
+          </template>
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div class="bg-void-800 border border-neon-amber/30 rounded-xl p-4">
+              <h4 class="font-orbitron text-xs text-neon-amber mb-3">⭐ PERSONNAGES</h4>
+              <div class="space-y-3">
+                <template x-for="(u,i) in arr(report.unites_cles && report.unites_cles.personnages)" :key="'p'+i">
+                  <div class="border-t border-void-700/60 pt-2 first:border-0 first:pt-0">
+                    <div class="flex items-center justify-between gap-2">
+                      <span class="font-semibold text-slate-100 text-sm" x-text="u.unite"></span>
+                      <span class="text-[10px] font-mono text-slate-500 whitespace-nowrap" x-text="u.pts + ' pts'"></span>
+                    </div>
+                    <p class="text-[11px] text-neon-amber/80 font-mono" x-text="u.role"></p>
+                    <ul class="mt-1 space-y-1">
+                      <template x-for="(a,ai) in arr(u.aptitudes)" :key="'pa'+ai">
+                        <li class="text-xs text-slate-400 flex gap-2"><span class="text-neon-amber">▸</span><span x-text="a"></span></li>
+                      </template>
+                    </ul>
+                    <p x-show="u.detail" class="text-[10px] font-mono text-slate-500 mt-1" x-text="u.detail"></p>
+                  </div>
+                </template>
+                <template x-if="report.unites_cles && !arr(report.unites_cles.personnages).length">
+                  <p class="text-[11px] font-mono text-slate-600">Aucun personnage détecté.</p>
+                </template>
               </div>
-            </template>
+            </div>
+            <div class="bg-void-800 border border-neon-cyan/30 rounded-xl p-4">
+              <h4 class="font-orbitron text-xs text-neon-cyan mb-3">🛡 SUPPORTS</h4>
+              <div class="space-y-3">
+                <template x-for="(u,i) in arr(report.unites_cles && report.unites_cles.supports)" :key="'s'+i">
+                  <div class="border-t border-void-700/60 pt-2 first:border-0 first:pt-0">
+                    <div class="flex items-center justify-between gap-2">
+                      <span class="font-semibold text-slate-100 text-sm" x-text="u.unite"></span>
+                      <span class="text-[10px] font-mono text-slate-500 whitespace-nowrap" x-text="u.pts + ' pts'"></span>
+                    </div>
+                    <p class="text-[11px] text-neon-cyan/80 font-mono" x-text="u.role"></p>
+                    <ul class="mt-1 space-y-1">
+                      <template x-for="(a,ai) in arr(u.aptitudes)" :key="'sa'+ai">
+                        <li class="text-xs text-slate-400 flex gap-2"><span class="text-neon-cyan">▸</span><span x-text="a"></span></li>
+                      </template>
+                    </ul>
+                    <p x-show="u.detail" class="text-[10px] font-mono text-slate-500 mt-1" x-text="u.detail"></p>
+                  </div>
+                </template>
+                <template x-if="report.unites_cles && !arr(report.unites_cles.supports).length">
+                  <p class="text-[11px] font-mono text-slate-600">Aucune unité de soutien détectée.</p>
+                </template>
+              </div>
+            </div>
+            <div class="bg-void-800 border border-neon-red/30 rounded-xl p-4">
+              <h4 class="font-orbitron text-xs text-neon-red mb-3">💀 FORTE LÉTALITÉ</h4>
+              <div class="space-y-3">
+                <template x-for="(u,i) in arr(report.unites_cles && report.unites_cles.letalite)" :key="'l'+i">
+                  <div class="border-t border-void-700/60 pt-2 first:border-0 first:pt-0">
+                    <div class="flex items-center justify-between gap-2">
+                      <span class="font-semibold text-slate-100 text-sm" x-text="u.unite"></span>
+                      <span class="text-[10px] font-mono text-slate-500 whitespace-nowrap" x-text="u.pts + ' pts'"></span>
+                    </div>
+                    <p class="text-[11px] text-neon-red/80 font-mono" x-text="u.role"></p>
+                    <ul class="mt-1 space-y-1">
+                      <template x-for="(a,ai) in arr(u.aptitudes)" :key="'la'+ai">
+                        <li class="text-xs text-slate-400 flex gap-2"><span class="text-neon-red">▸</span><span x-text="a"></span></li>
+                      </template>
+                    </ul>
+                    <p x-show="u.detail" class="text-[10px] font-mono text-slate-500 mt-1" x-text="u.detail"></p>
+                  </div>
+                </template>
+                <template x-if="report.unites_cles && !arr(report.unites_cles.letalite).length">
+                  <p class="text-[11px] font-mono text-slate-600">Aucune unité à forte létalité détectée.</p>
+                </template>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -1999,6 +2040,21 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
 
         if (dxOn) sorted.slice(0, pivots.length).forEach((u, i) => { if (u.dxTxt) pivots[i].explication += ' ' + u.dxTxt; });
 
+        // Aptitudes clés des unités clés : personnages / supports / forte létalité
+        const capAb = a => String(a || '').replace(/\b\w/g, c => c.toUpperCase());
+        const aptOf = u => {
+          const abs = (u.dx && Array.isArray(u.dx.ab) ? u.dx.ab : []).filter(Boolean).map(capAb);
+          if (abs.length) return abs.slice(0, 5);
+          const RL = { antichar:'Frappe antichar', antihorde:'Nettoyage de masse', melee:'Spécialiste mêlée', tough:'Grande résilience', fast:'Très mobile', scoring:'Contrôle d\'objectifs', leader:'Aptitudes de commandement', psychic:is40k ? 'Pouvoirs psychiques' : 'Magie / prières' };
+          return (u.roles || []).map(r => RL[r]).filter(Boolean).slice(0, 4);
+        };
+        const keyUnit = u => ({ unite: u.name, pts: u.pts, role: roleLabel(u), aptitudes: aptOf(u), detail: u.dxTxt || '' });
+        const byPts = (a, b) => b.pts - a.pts;
+        const personnages = units.filter(u => (u.roles || []).includes('leader')).sort(byPts).slice(0, 4).map(keyUnit);
+        const supports = units.filter(u => !(u.roles || []).includes('leader') && ((u.roles || []).includes('psychic') || (u.roles || []).includes('scoring'))).sort(byPts).slice(0, 4).map(keyUnit);
+        const letalite = units.filter(u => ['antichar', 'antihorde', 'melee'].includes(u.dxMain) || (u.roles || []).some(r => r === 'antichar' || r === 'antihorde' || r === 'melee')).sort(byPts).slice(0, 4).map(keyUnit);
+        const unites_cles = { personnages, supports, letalite };
+
         // Gameplan
         const strongest = labels[values.indexOf(Math.max(...values))];
         const weakest = labels[values.indexOf(Math.min(...values))];
@@ -2074,7 +2130,7 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
         if (dx) resume += ' ' + dx.txt;
 
         const reportData = {
-          titre_rapport: `Analyse tactique — ${faction ? faction.name : 'Liste ' + (is40k ? '40k' : 'AoS')}${chapter ? ' · ' + chapter.name : ''}`,
+          titre_rapport: `Rapport de liste — ${faction ? faction.name : 'Liste ' + (is40k ? '40k' : 'AoS')}${chapter ? ' · ' + chapter.name : ''}`,
           systeme: this.gameSystem,
           edition: is40k ? '11e édition (v11)' : '4e édition (v4)',
           faction_detectee: faction ? faction.name : 'Non identifiée',
@@ -2085,7 +2141,7 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
           total_points: totalPts,
           nb_unites: units.length,
           resume_executif: resume,
-          scores, regles, pivots_de_liste: pivots, gameplan, plan_contre, matchups,
+          scores, regles, pivots_de_liste: pivots, unites_cles, gameplan, plan_contre, matchups,
           vulnerabilites_cles: vulns.slice(0, 7)
         };
 
