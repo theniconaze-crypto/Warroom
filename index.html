@@ -188,6 +188,68 @@
         </section>
 
 
+
+        <!-- Règles d'armée & détachements -->
+        <section class="bg-void-900 border border-void-700 rounded-xl p-5">
+          <h3 class="font-orbitron text-sm text-neon-cyan mb-4 tracking-wide">RÈGLES D'ARMÉE & DÉTACHEMENTS</h3>
+          <template x-if="report.regles_armee && report.regles_armee.armee">
+            <div class="bg-void-800 border border-neon-green/30 rounded-xl p-4 mb-4">
+              <div class="flex flex-wrap items-baseline gap-2 mb-2">
+                <span class="font-orbitron text-neon-green text-sm" x-text="report.regles_armee.armee.nom"></span>
+                <span class="text-[11px] font-mono text-slate-500" x-text="report.regles_armee.armee.meta"></span>
+              </div>
+              <p x-show="report.regles_armee.armee.style" class="text-xs text-slate-400 leading-relaxed mb-2" x-text="report.regles_armee.armee.style"></p>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div x-show="arr(report.regles_armee.armee.forces).length">
+                  <p class="text-[11px] font-mono text-neon-green mb-1">FORCES</p>
+                  <ul class="space-y-1">
+                    <template x-for="(f,fi) in arr(report.regles_armee.armee.forces)" :key="'f'+fi">
+                      <li class="text-xs text-slate-400 flex gap-2"><span class="text-neon-green">▸</span><span x-text="f"></span></li>
+                    </template>
+                  </ul>
+                </div>
+                <div x-show="arr(report.regles_armee.armee.faiblesses).length">
+                  <p class="text-[11px] font-mono text-neon-red mb-1">FAIBLESSES</p>
+                  <ul class="space-y-1">
+                    <template x-for="(f,fi) in arr(report.regles_armee.armee.faiblesses)" :key="'w'+fi">
+                      <li class="text-xs text-slate-400 flex gap-2"><span class="text-neon-red">▸</span><span x-text="f"></span></li>
+                    </template>
+                  </ul>
+                </div>
+              </div>
+              <div x-show="arr(report.regles_armee.armee.aptitudes).length" class="mt-3">
+                <p class="text-[11px] font-mono text-neon-cyan mb-1">APTITUDES D'ARMÉE</p>
+                <template x-for="(a,ai) in arr(report.regles_armee.armee.aptitudes)" :key="'aa'+ai">
+                  <div class="py-2 border-t border-void-700/60">
+                    <span class="font-semibold text-slate-100 text-sm" x-text="a.nom"></span>
+                    <p x-show="a.texte" class="text-xs text-slate-400 leading-relaxed mt-1" x-text="a.texte"></p>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </template>
+          <div class="space-y-3">
+            <template x-for="(d,di) in arr(report.regles_armee && report.regles_armee.detachements)" :key="'d'+di">
+              <div class="bg-void-800 border border-void-700 rounded-xl p-4">
+                <div class="flex flex-wrap items-baseline gap-2 mb-2">
+                  <span class="font-orbitron text-neon-amber text-sm" x-text="d.nom"></span>
+                  <span class="text-[11px] font-mono text-slate-500" x-text="d.meta"></span>
+                </div>
+                <template x-for="(a,ai) in arr(d.aptitudes)" :key="'da'+ai">
+                  <div class="py-2 border-t border-void-700/60">
+                    <span class="font-semibold text-slate-100 text-sm" x-text="a.nom"></span>
+                    <p x-show="a.texte" class="text-xs text-slate-400 leading-relaxed mt-1" x-text="a.texte"></p>
+                  </div>
+                </template>
+                <p x-show="!arr(d.aptitudes).length" class="text-[11px] font-mono text-slate-600">Aptitudes de détachement non disponibles (importez Detachment_abilities.csv).</p>
+              </div>
+            </template>
+          </div>
+          <template x-for="(n,ni) in arr(report.regles_armee && report.regles_armee.notes)" :key="'rn'+ni">
+            <p class="text-xs font-mono text-slate-500 mt-3" x-text="'ℹ ' + n"></p>
+          </template>
+        </section>
+
         <!-- Aptitudes clés des unités clés -->
         <section class="bg-void-900 border border-void-700 rounded-xl p-5">
           <h3 class="font-orbitron text-sm text-neon-cyan mb-1 tracking-wide">APTITUDES CLÉS DES UNITÉS CLÉS</h3>
@@ -2055,6 +2117,38 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
         const letalite = units.filter(u => ['antichar', 'antihorde', 'melee'].includes(u.dxMain) || (u.roles || []).some(r => r === 'antichar' || r === 'antihorde' || r === 'melee')).sort(byPts).slice(0, 4).map(keyUnit);
         const unites_cles = { personnages, supports, letalite };
 
+        // Règles d'armée & détachements (présentation en tête de rapport)
+        const cutTxt = (s, n) => { s = String(s || '').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
+        const regles_armee = { armee: null, detachements: [], notes: [] };
+        if (faction) regles_armee.armee = {
+          nom: faction.name + (chapter ? ' · ' + chapter.name : ''),
+          meta: is40k ? 'Warhammer 40,000 — 11e édition' : 'Age of Sigmar — 4e édition',
+          style: faction.style || '', forces: faction.forces || [], faiblesses: faction.faiblesses || [], aptitudes: []
+        };
+        if (is40k) {
+          // Détachements détectés par le module règles : nom, méta, aptitudes de détachement
+          (regles.blocs || []).forEach(b => {
+            const abSec = (b.sections || []).find(s => /aptitude/i.test(s.titre));
+            regles_armee.detachements.push({ nom: b.titre, meta: b.meta || '', aptitudes: (abSec ? abSec.items : []).map(it => ({ nom: it.nom, texte: it.texte })) });
+          });
+          if (!regles_armee.detachements.length) regles_armee.notes.push('Aucun détachement reconnu dans la liste : indiquez son nom en en-tête (ex. « Detachment : … ») et importez les CSV Wahapedia des détachements.');
+          if (regles_armee.armee && !regles_armee.armee.style) regles_armee.notes.push('Faction identifiée via les fiches importées : pas de description d'armée dans le dictionnaire embarqué.');
+        } else {
+          // AoS : aptitudes de faction et sous-factions issues du pack / des CSV importés
+          const facBloc = (regles.blocs || []).find(b => /^Aptitudes de faction/.test(b.titre));
+          if (facBloc && regles_armee.armee) {
+            regles_armee.armee.aptitudes = ((facBloc.sections || [])[0] ? facBloc.sections[0].items : []).map(it => ({ nom: it.nom, texte: it.texte }));
+          } else if (facBloc && !regles_armee.armee) {
+            regles_armee.armee = { nom: facBloc.titre.replace('Aptitudes de faction — ', ''), meta: 'Age of Sigmar — 4e édition', style: '', forces: [], faiblesses: [],
+              aptitudes: ((facBloc.sections || [])[0] ? facBloc.sections[0].items : []).map(it => ({ nom: it.nom, texte: it.texte })) };
+          }
+          (regles.blocs || []).filter(b => /^Sous-faction/.test(b.titre)).forEach(b => {
+            regles_armee.detachements.push({ nom: b.titre, meta: b.meta || '', aptitudes: ((b.sections || [])[0] ? b.sections[0].items : []).map(it => ({ nom: it.nom, texte: it.texte })) });
+          });
+          if (!facBloc) regles_armee.notes.push('Aptitudes de faction indisponibles : importez les CSV AoS (Battle_traits, Abilities…) ou collez un pack règles AoS.');
+          if (!regles_armee.detachements.length) regles_armee.notes.push('Aucune sous-faction reconnue dans la liste.');
+        }
+
         // Gameplan
         const strongest = labels[values.indexOf(Math.max(...values))];
         const weakest = labels[values.indexOf(Math.min(...values))];
@@ -2141,7 +2235,7 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
           total_points: totalPts,
           nb_unites: units.length,
           resume_executif: resume,
-          scores, regles, pivots_de_liste: pivots, unites_cles, gameplan, plan_contre, matchups,
+          scores, regles, regles_armee, pivots_de_liste: pivots, unites_cles, gameplan, plan_contre, matchups,
           vulnerabilites_cles: vulns.slice(0, 7)
         };
 
