@@ -64,6 +64,12 @@
         </div>
       </div>
       <div class="flex items-center gap-2">
+        <span x-show="user" class="inline-flex items-center gap-1.5 text-[10px] font-mono px-2 py-1 rounded-full border"
+          :class="syncState==='ok' ? 'border-neon-green/40 text-neon-green' : (syncState==='error' ? 'border-neon-red/40 text-neon-red' : 'border-neon-amber/40 text-neon-amber')"
+          :title="'Contrôle Firestore toutes les 5 s' + (syncAt ? ' — dernier contrôle : ' + syncAt : '')">
+          <span class="inline-block w-2 h-2 rounded-full" :class="(syncState==='ok' ? 'bg-neon-green' : (syncState==='error' ? 'bg-neon-red' : 'bg-neon-amber animate-pulse'))"></span>
+          <span x-text="syncState==='ok' ? 'Données à jour' : (syncState==='syncing' ? 'Mise à jour…' : (syncState==='stale' ? 'Données obsolètes' : (syncState==='error' ? 'Firestore injoignable' : 'Contrôle…')))"></span>
+        </span>
         <span x-show="user" class="hidden sm:inline text-[11px] font-mono text-slate-400" x-text="user ? ('👤 ' + user.username + (isAdmin() ? ' · ADMIN' : '')) : ''"></span>
         <button x-show="isAdmin()" @click="openSettings()"
           class="flex items-center gap-2 text-xs font-mono px-3 py-2 rounded-lg border border-void-700 bg-void-800 hover:border-neon-cyan/50 hover:text-neon-cyan transition">
@@ -1631,6 +1637,7 @@ function warRoomApp() {
     newCanAnalyze: true, newCanEdit: true, newCanDelete: true, selfUnsub: null,
     currentHistoryId: null,
     refreshing: false, refreshStatus: '',
+    syncState: 'checking', syncAt: '', syncBusy: false, syncTimer: null,
     rawList: '',
     loading: false,
     exporting: false,
@@ -1787,6 +1794,32 @@ function warRoomApp() {
       catch (e) { this.usersStatus = '✗ ' + (e.message || e); }
     },
 
+    // Contrôle toutes les 5 s : compare la version des données sur Firestore (méta : waha, aos, packs) à la version locale ; si différent, re-télécharge
+    async checkSync() {
+      if (this.syncBusy || !this.user || document.hidden) return;
+      const col = CLOUDDATA.col();
+      if (!col) { this.syncState = 'error'; return; }
+      this.syncBusy = true;
+      try {
+        const docs = await Promise.all([['waha','waha_meta'], ['aos','aos_meta'], ['packs','packs']].map(async ([k, id]) => [k, await col.doc(id).get({ source: 'server' })]));
+        const stale = docs.some(([k, d]) => (d.exists ? (d.data().updatedAt || '') : '') !== (localStorage.getItem('warroom_sync_' + k) || ''));
+        this.syncAt = new Date().toLocaleTimeString('fr-FR');
+        if (stale) {
+          this.syncState = 'syncing';
+          await this.pullCloudData();
+          const again = await Promise.all([['waha','waha_meta'], ['aos','aos_meta'], ['packs','packs']].map(async ([k, id]) => [k, await col.doc(id).get({ source: 'server' })]));
+          this.syncState = again.some(([k, d]) => (d.exists ? (d.data().updatedAt || '') : '') !== (localStorage.getItem('warroom_sync_' + k) || '')) ? 'stale' : 'ok';
+        } else this.syncState = 'ok';
+      } catch (e) { console.warn('Contrôle synchro :', e); this.syncState = 'error'; }
+      this.syncBusy = false;
+    },
+    startSyncWatch() {
+      if (this.syncTimer) return;
+      this.syncTimer = setInterval(() => this.checkSync(), 5000);
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) this.checkSync(); });
+      setTimeout(() => this.checkSync(), 1500);
+    },
+
     // Récupère depuis Firestore les données importées (40k, AoS, packs JSON) si plus récentes
     async pullCloudData() {
       try {
@@ -1809,7 +1842,7 @@ function warRoomApp() {
           const p = await col.doc('packs').get();
           if (p.exists) {
             const d = p.data();
-            this.dataPackRaw = d.datapack || ''; localStorage.setItem('warroom_datapack', this.dataPackRaw);
+            this.dataPackRaw = d.datapack || ''; localStorage.setItem('warroom_datapack', this.dataPackRaw); localStorage.setItem('warroom_sync_packs', d.updatedAt || '');
             this.aosPackRaw = d.aospack || ''; localStorage.setItem('warroom_aos_pack', this.aosPackRaw);
           }
         }
@@ -1817,7 +1850,7 @@ function warRoomApp() {
       } catch (e) { console.warn('Firestore données :', e); this.dataSyncStatus = '☁ erreur de synchro'; }
     },
     async pushPacks() {
-      try { const col = CLOUDDATA.col(); if (col) await col.doc('packs').set({ datapack: this.dataPackRaw || '', aospack: this.aosPackRaw || '', updatedAt: new Date().toISOString() }); }
+      try { const col = CLOUDDATA.col(); if (col) { const at = new Date().toISOString(); await col.doc('packs').set({ datapack: this.dataPackRaw || '', aospack: this.aosPackRaw || '', updatedAt: at }); localStorage.setItem('warroom_sync_packs', at); } }
       catch (e) { console.warn(e); }
     },
 
@@ -1832,6 +1865,7 @@ function warRoomApp() {
       this.$watch('gameSystem', v => localStorage.setItem('warroom_game', v));
       this.restoreSession();
       this.pullCloudData();
+      this.startSyncWatch();
     },
 
     // ---------- Réglages protégés ----------
