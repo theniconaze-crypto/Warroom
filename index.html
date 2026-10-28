@@ -681,6 +681,11 @@ const FACTION_DB = {
      forces:['Profils géants très létaux','Résilience brute élevée','Projection de menace immédiate'],
      faiblesses:['Très peu d\'unités pour le scoring','Vulnérable aux armes antichar dédiées','Terrain difficile à exploiter'],
      contrePhilo:"Jouer les objectifs et l'usure : concentrer l'antichar sur un châssis à la fois, utiliser les écrans pour bloquer les charges."},
+    {name:'Imperial Agents (Agents of the Imperium)', alias:['agents of the imperium','imperial agents'], keys:['imperial agents','agents of the imperium','inquisitor','inquisition','vindicare','callidus','eversor','culexus','death cult assassin','rogue trader','aquila kill team','imperial navy breacher','sanctifier','exaction squad','voidsmen','subductor','navigator','acolyte'],
+     style:"Armée de spécialistes : inquisiteurs, assassins et petites escouades d'élite aux effets ciblés, très dépendante des synergies de son détachement.",
+     forces:['Frappes chirurgicales sur personnages et cibles clés','Unités discrètes et flexibles (infiltration, redéploiements)','Bonnes options de soutien et de contrôle d\'objectifs légers'],
+     faiblesses:['Faible nombre de figurines et de profils robustes','Peu de puissance de feu soutenue','Scoring tendu sur grande table'],
+     contrePhilo:"Saturer et jouer le nombre : ne pas offrir de cibles isolées aux frappes chirurgicales, écranter vos personnages et gagner la guerre des objectifs."},
     {name:'Chaos Space Marines', keys:['chaos space marine','heretic astartes','legionnaire','havocs','obliterator','abaddon','black legion','night lords','iron warriors','word bearers','alpha legion','forgefiend','venomcrawler'],
      style:"Miroir corrompu des Astartes : polyvalence, pactes et unités spécialisées agressives.",
      forces:['Polyvalence et flexibilité','Bonnes unités de frappe','Outils pour chaque phase'],
@@ -1128,7 +1133,7 @@ const WAHA = (() => {
   }
 
   function pickFaction(dbName, cur, list) {
-    const a = norm(dbName), m = f => { const b = norm(f.name.split('(')[0]); return b.includes(a) || a.includes(b); };
+    const a = norm(dbName), m = f => { const bs = [f.name.split('(')[0]].concat(f.alias||[]).map(norm); return bs.some(b => b.includes(a) || a.includes(b)); };
     if (cur && m(cur)) return cur;
     return list.find(m) || cur || { name:dbName, style:'Faction identifiée via les fiches Wahapedia importées.', forces:['Profil établi à partir des données importées'], faiblesses:[], contrePhilo:"Exploiter la lacune principale de la liste en refusant son point fort." };
   }
