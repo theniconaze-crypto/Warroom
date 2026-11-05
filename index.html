@@ -120,10 +120,257 @@
           </button>
         </div>
       </div>
+
+      <div>
+        <label class="block text-xs text-slate-400 mb-2 font-mono">Mode</label>
+        <div class="flex gap-3">
+          <button @click="mode='analyse'"
+            class="flex-1 py-2.5 rounded-lg border font-orbitron text-xs tracking-wide transition"
+            :class="mode==='analyse' ? 'bg-neon-amber/10 border-neon-amber text-neon-amber' : 'border-void-700 text-slate-500 hover:border-slate-500'">
+            ANALYSE
+            <div class="text-[10px] font-mono opacity-70 mt-0.5">une liste</div>
+          </button>
+          <button @click="if (canDuel()) mode='duel'" :disabled="!canDuel()"
+            class="flex-1 py-2.5 rounded-lg border font-orbitron text-xs tracking-wide transition disabled:opacity-40 disabled:cursor-not-allowed"
+            :class="mode==='duel' && canDuel() ? 'bg-neon-red/10 border-neon-red text-neon-red' : 'border-void-700 text-slate-500 hover:border-slate-500'"
+            :title="canDuel() ? '' : 'Accès au mode Duel non activé sur votre compte (contactez un administrateur)'">
+            <span x-text="canDuel() ? '⚔ DUEL' : '🔒 DUEL'"></span>
+            <div class="text-[10px] font-mono opacity-70 mt-0.5" x-text="canDuel() ? 'deux listes · MU −3 / +3' : 'accès non activé'"></div>
+          </button>
+        </div>
+      </div>
     </section>
 
+    <!-- ===================== DUEL ===================== -->
+    <section x-show="mode==='duel' && canDuel()" x-cloak class="bg-void-900 border border-void-700 rounded-xl p-5 space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="font-orbitron text-xs tracking-widest text-neon-red">⚔ MODE DUEL — MATCHUP ENTRE DEUX LISTES</h2>
+        <span class="text-[10px] font-mono px-2 py-1 rounded-full border"
+          :class="pollKey ? 'border-neon-green/30 text-neon-green bg-neon-green/10' : 'border-void-700 text-slate-500'"
+          x-text="pollKey ? '● IA Pollinations configurée' : '○ IA non configurée (moteur local seul)'"></span>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs text-neon-green mb-1 font-mono">LISTE A <span class="text-slate-500">(point de vue du MU)</span></label>
+          <textarea x-model="duelA" rows="10" placeholder="Collez la liste A (NewRecruit, app GW, ALN...) — chaque unité avec son coût en points."
+            class="w-full bg-void-800 border border-void-700 rounded-lg px-3 py-3 text-sm font-mono text-slate-200 resize-y focus:border-neon-green/60"></textarea>
+        </div>
+        <div>
+          <label class="block text-xs text-neon-red mb-1 font-mono">LISTE B</label>
+          <textarea x-model="duelB" rows="10" placeholder="Collez la liste B."
+            class="w-full bg-void-800 border border-void-700 rounded-lg px-3 py-3 text-sm font-mono text-slate-200 resize-y focus:border-neon-red/60"></textarea>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-center gap-3">
+        <button @click="runDuel()" :disabled="duelLoading || !canAnalyze()"
+          class="font-orbitron text-sm tracking-wide px-5 py-3 rounded-lg bg-neon-red/10 border border-neon-red text-neon-red hover:bg-neon-red/20 transition disabled:opacity-40">
+          <span x-show="!duelLoading">⚔ LANCER LE DUEL</span><span x-show="duelLoading" x-text="duelStatus || 'ANALYSE...'"></span>
+        </button>
+        <label class="flex items-center gap-2 text-xs font-mono text-slate-300" :class="pollKey ? '' : 'opacity-40'">
+          <input type="checkbox" x-model="duelUseAI" :disabled="!pollKey" class="accent-emerald-400"> Utiliser l'IA (Pollinations)
+        </label>
+        <button x-show="duelRes || duelA || duelB" @click="resetDuel()" class="font-mono text-xs px-4 py-3 rounded-lg border border-void-700 text-slate-400 hover:border-slate-500 transition">Nouveau duel</button>
+        <span x-show="!pollKey" class="text-[10px] font-mono text-slate-500">Clé à renseigner dans ⚙ Réglages (admin).</span>
+      </div>
+      <div x-show="user && !canAnalyze()" class="bg-neon-amber/10 border border-neon-amber/40 text-neon-amber text-xs rounded-lg p-3 font-mono">⏸ Votre compte n'est pas autorisé à générer des analyses.</div>
+      <div x-show="duelError" x-transition class="bg-neon-red/10 border border-neon-red/40 text-neon-red text-xs rounded-lg p-3 font-mono" x-text="duelError"></div>
+    </section>
+
+    <!-- RÉSULTAT DUEL -->
+    <template x-if="mode==='duel' && canDuel() && duelRes && !duelLoading">
+      <div class="space-y-6">
+
+        <!-- Verdict -->
+        <section class="bg-void-900 border border-void-700 rounded-xl p-5">
+          <div class="grid grid-cols-3 items-center gap-3 text-center">
+            <div>
+              <p class="text-[10px] font-mono text-neon-green">LISTE A</p>
+              <p class="font-orbitron text-sm text-slate-100" x-text="duelRes.A.fac"></p>
+              <p class="text-[10px] font-mono text-slate-500" x-text="duelRes.A.pts + ' pts · ' + duelRes.A.n + ' unités'"></p>
+            </div>
+            <div>
+              <p class="font-orbitron text-4xl" :class="muColor(duelRes.final)" x-text="muFmt(duelRes.final)"></p>
+              <p class="text-xs font-mono" :class="muColor(duelRes.final)" x-text="duelRes.verdict"></p>
+            </div>
+            <div>
+              <p class="text-[10px] font-mono text-neon-red">LISTE B</p>
+              <p class="font-orbitron text-sm text-slate-100" x-text="duelRes.B.fac"></p>
+              <p class="text-[10px] font-mono text-slate-500" x-text="duelRes.B.pts + ' pts · ' + duelRes.B.n + ' unités'"></p>
+            </div>
+          </div>
+          <!-- jauge -3 .. +3 -->
+          <div class="mt-5">
+            <div class="relative h-3 rounded-full bg-void-800 border border-void-700 overflow-hidden">
+              <div class="absolute inset-y-0 left-0 w-1/2 bg-neon-red/20"></div>
+              <div class="absolute inset-y-0 right-0 w-1/2 bg-neon-green/20"></div>
+              <div class="absolute inset-y-0 left-1/2 w-px bg-slate-500"></div>
+              <div class="absolute top-0 bottom-0 w-1.5 rounded bg-slate-100 shadow-glowCyan" :style="'left:calc(' + ((duelRes.final+3)/6*100) + '% - 3px)'"></div>
+            </div>
+            <div class="flex justify-between text-[10px] font-mono text-slate-500 mt-1"><span>−3 (B écrase A)</span><span>0</span><span>+3 (A écrase B)</span></div>
+          </div>
+          <p class="text-[11px] font-mono text-slate-500 mt-3 text-center">
+            Du point de vue de la liste A. Pour la liste B, le MU est <span class="text-slate-300" x-text="muFmt(-duelRes.final)"></span>.
+            <span x-show="duelRes.ai !== null"> · Moteur local : <span class="text-slate-300" x-text="muFmt(duelRes.eng)"></span> · IA : <span class="text-slate-300" x-text="muFmt(duelRes.ai)"></span> (moyenne retenue)</span>
+            <span x-show="duelRes.ai === null"> · Moteur local seul (<span x-text="duelRes.eng !== undefined ? muFmt(duelRes.eng) : ''"></span>)</span>
+          </p>
+          <p class="text-xs text-slate-400 leading-relaxed mt-3" x-text="duelRes.resume"></p>
+          <template x-for="(n,ni) in arr(duelRes.notes)" :key="'dn'+ni">
+            <p class="text-[11px] font-mono text-neon-amber mt-1" x-text="'ℹ ' + n"></p>
+          </template>
+        </section>
+
+        <!-- Comparatif -->
+        <section class="bg-void-900 border border-void-700 rounded-xl p-5">
+          <h3 class="font-orbitron text-sm text-neon-cyan mb-4 tracking-wide">COMPARATIF DES PROFILS</h3>
+          <div class="space-y-3">
+            <template x-for="ax in duelAxes" :key="ax.k">
+              <div>
+                <div class="text-[11px] font-mono text-slate-400 mb-1" x-text="ax.label"></div>
+                <div class="grid grid-cols-[2.5rem_1fr_2.5rem] items-center gap-2 mb-1">
+                  <span class="text-[11px] font-mono text-neon-green text-right" x-text="duelRes.A.s[ax.k].toFixed(1)"></span>
+                  <div class="h-2 rounded bg-void-800 overflow-hidden"><div class="h-full bg-neon-green" :style="'width:' + (duelRes.A.s[ax.k]*10) + '%'"></div></div>
+                  <span class="text-[10px] font-mono text-slate-600">A</span>
+                </div>
+                <div class="grid grid-cols-[2.5rem_1fr_2.5rem] items-center gap-2">
+                  <span class="text-[11px] font-mono text-neon-red text-right" x-text="duelRes.B.s[ax.k].toFixed(1)"></span>
+                  <div class="h-2 rounded bg-void-800 overflow-hidden"><div class="h-full bg-neon-red" :style="'width:' + (duelRes.B.s[ax.k]*10) + '%'"></div></div>
+                  <span class="text-[10px] font-mono text-slate-600">B</span>
+                </div>
+              </div>
+            </template>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
+            <template x-for="side in ['A','B']" :key="'cp'+side">
+              <div class="bg-void-800 border border-void-700 rounded-xl p-3">
+                <p class="text-[11px] font-mono mb-1" :class="side==='A' ? 'text-neon-green' : 'text-neon-red'" x-text="'LISTE ' + side + ' — ' + duelRes[side].fac"></p>
+                <p class="text-[11px] text-slate-400">Efficacité de destruction (sur cibles étalon : élite T4 Sv3+ sans FNP) : cibles lourdes <b class="text-slate-200" x-text="duelRes[side].vec.H.toFixed(1)"></b> · élites <b class="text-slate-200" x-text="duelRes[side].vec.E.toFixed(1)"></b> · hordes <b class="text-slate-200" x-text="duelRes[side].vec.Ho.toFixed(1)"></b> (/10)</p>
+                <p class="text-[11px] text-slate-400 mt-1">Cibles présentées : lourdes <b class="text-slate-200" x-text="Math.round(duelRes[side].mix.H*100)+'%'"></b> · élites <b class="text-slate-200" x-text="Math.round(duelRes[side].mix.E*100)+'%'"></b> · hordes <b class="text-slate-200" x-text="Math.round(duelRes[side].mix.Ho*100)+'%'"></b></p>
+                <p x-show="duelRes[side].fk" class="text-[11px] text-neon-cyan mt-1" x-text="duelRes[side].fk ? ('Capacité réelle face à la liste adverse (une volée, tout le feu sur un seul type) — points détruits : lourdes ' + (duelRes[side].fk.H === null ? '—' : Math.round(duelRes[side].fk.H*100)+'%') + ' · élites ' + (duelRes[side].fk.E === null ? '—' : Math.round(duelRes[side].fk.E*100)+'%') + ' · hordes ' + (duelRes[side].fk.Ho === null ? '—' : Math.round(duelRes[side].fk.Ho*100)+'%')) : ''"></p>
+                <p x-show="arr(duelRes[side].offTags).length" class="text-[11px] text-neon-amber mt-1" x-text="'Atouts offensifs détectés : ' + arr(duelRes[side].offTags).join(' · ')"></p>
+                <p class="text-[10px] font-mono text-slate-500 mt-1" x-text="duelRes[side].dxInfo"></p>
+                <p x-show="duelRes[side].rtxt" class="text-[10px] font-mono text-slate-500 mt-1" x-text="duelRes[side].rtxt"></p>
+                <p x-show="arr(duelRes[side].det).length" class="text-[10px] font-mono text-neon-amber mt-1" x-text="'Détachement(s) / sous-faction(s) : ' + arr(duelRes[side].det).join(' · ')"></p>
+              </div>
+            </template>
+          </div>
+        </section>
+
+        <!-- Pourquoi -->
+        <section class="bg-void-900 border border-void-700 rounded-xl p-5">
+          <h3 class="font-orbitron text-sm text-neon-cyan mb-4 tracking-wide">POURQUOI CE MU ?</h3>
+          <div class="space-y-2">
+            <template x-for="(f,fi) in arr(duelRes.factors)" :key="'fx'+fi">
+              <div class="bg-void-800 border border-void-700 rounded-xl p-3">
+                <div class="flex items-center justify-between gap-3 mb-1">
+                  <span class="text-sm font-semibold text-slate-100" x-text="f.nom"></span>
+                  <span class="text-[10px] px-2 py-1 rounded-full font-mono whitespace-nowrap"
+                    :class="f.pour==='A' ? 'bg-neon-green/15 text-neon-green' : (f.pour==='B' ? 'bg-neon-red/15 text-neon-red' : 'bg-neon-amber/15 text-neon-amber')"
+                    x-text="f.pour==='A' ? ('Avantage A ' + f.pts) : (f.pour==='B' ? ('Avantage B ' + f.pts) : 'Neutre')"></span>
+                </div>
+                <p class="text-xs text-slate-400 leading-relaxed" x-text="f.texte"></p>
+              </div>
+            </template>
+          </div>
+        </section>
+
+        <!-- Qui tue quoi -->
+        <section class="bg-void-900 border border-void-700 rounded-xl p-5">
+          <h3 class="font-orbitron text-sm text-neon-amber mb-1 tracking-wide">📜 JOURNAL DES RÈGLES LUES</h3>
+          <p class="text-[10px] font-mono text-slate-500 mb-3"><span class="text-neon-green">offensif</span> / <span class="text-neon-cyan">défensif</span> = chiffré dans la simulation · <span class="text-slate-400">qualitatif</span> = lu et transmis à l'IA, non chiffré localement</p>
+          <div class="grid md:grid-cols-2 gap-4">
+            <template x-for="side in ['A','B']" :key="'jr'+side">
+              <div class="space-y-2">
+                <p class="text-[11px] font-mono" :class="side==='A' ? 'text-neon-green' : 'text-neon-red'" x-text="'LISTE ' + side + ' — ' + duelRes[side].fac"></p>
+                <template x-if="duelRes[side].led">
+                  <div class="space-y-2">
+                    <details class="bg-void-850 rounded p-2"><summary class="text-xs text-slate-300 cursor-pointer" x-text="'Règle(s) d\'armée (' + arr(duelRes[side].led.fa).length + ')'"></summary>
+                      <template x-for="(r,ri) in arr(duelRes[side].led.fa)" :key="'fa'+side+ri"><p class="text-[11px] text-slate-400 mt-1"><b :class="ruleCls(r.s)" x-text="r.n + ' [' + r.s + ']'"></b> <span x-text="r.t"></span></p></template></details>
+                    <template x-for="(d,di) in arr(duelRes[side].led.dets)" :key="'dt'+side+di">
+                      <details class="bg-void-850 rounded p-2"><summary class="text-xs text-neon-amber cursor-pointer" x-text="'Détachement : ' + d.n + ' (' + d.ab.length + ' aptitudes · ' + d.st.length + ' stratagèmes · ' + d.en.length + ' améliorations)'"></summary>
+                        <template x-for="(r,ri) in d.ab" :key="'da'+ri"><p class="text-[11px] text-slate-400 mt-1"><b :class="ruleCls(r.s)" x-text="r.n + ' [' + r.s + ']'"></b> <span x-text="r.t"></span></p></template>
+                        <template x-for="(r,ri) in d.st" :key="'ds'+ri"><p class="text-[11px] text-slate-400 mt-1"><b :class="ruleCls(r.s)" x-text="r.n + ' · ' + r.cp + ' CP [' + r.s + ']'"></b> <span x-text="r.t"></span></p></template>
+                        <template x-for="(r,ri) in d.en" :key="'de'+ri"><p class="text-[11px] text-slate-400 mt-1"><b :class="ruleCls(r.s)" x-text="r.n + (r.own ? ' ✓ dans la liste' : '') + ' [' + r.s + ']'"></b> <span x-text="r.t"></span></p></template></details>
+                    </template>
+                  </div>
+                </template>
+                <template x-for="(b,bi) in arr(duelRes[side].rb)" :key="'rb'+side+bi">
+                  <details class="bg-void-850 rounded p-2"><summary class="text-xs text-neon-amber cursor-pointer" x-text="b.n"></summary>
+                    <template x-for="(r,ri) in b.items" :key="'rbi'+ri"><p class="text-[11px] text-slate-400 mt-1"><b class="text-slate-300" x-text="r.n"></b> <span x-text="r.t"></span></p></template></details>
+                </template>
+                <details class="bg-void-850 rounded p-2"><summary class="text-xs text-slate-300 cursor-pointer" x-text="'Unités : mots-clés & aptitudes (' + arr(duelRes[side].ul).length + ')'"></summary>
+                  <template x-for="(u,ui) in arr(duelRes[side].ul)" :key="'ul'+side+ui">
+                    <div class="mt-2"><p class="text-[11px] text-slate-200" x-text="u.name + ' (' + u.pts + ' pts)'"></p>
+                      <p class="text-[10px] font-mono text-slate-500" x-text="arr(u.kw).join(', ')"></p>
+                      <template x-for="(a,ai) in arr(u.ab)" :key="'ua'+ai"><p class="text-[11px] text-slate-400 pl-2"><b :class="ruleCls(a.s)" x-text="a.n + ' [' + a.s + ']'"></b> <span x-text="a.t"></span></p></template></div>
+                  </template></details>
+              </div>
+            </template>
+          </div>
+        </section>
+
+        <section x-show="duelRes.volley" class="bg-void-900 border border-void-700 rounded-xl p-5">
+          <h3 class="font-orbitron text-sm text-neon-cyan mb-1 tracking-wide">QUI TUE QUOI — SIMULATION D'UNE VOLÉE</h3>
+          <p class="text-[11px] font-mono text-slate-500 mb-4" x-text="duelRes.volley ? ('A détruit ≈ ' + Math.round(duelRes.volley.fA*100) + '% de B (' + Math.round(duelRes.volley.kA) + ' pts) · B détruit ≈ ' + Math.round(duelRes.volley.fB*100) + '% de A (' + Math.round(duelRes.volley.kB) + ' pts)') : ''"></p>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <template x-for="side in ['A','B']" :key="'vq'+side">
+              <div class="bg-void-800 border rounded-xl p-3" :class="side==='A' ? 'border-neon-green/30' : 'border-neon-red/30'">
+                <p class="text-[11px] font-mono mb-2" :class="side==='A' ? 'text-neon-green' : 'text-neon-red'" x-text="'Tueurs de la liste ' + side"></p>
+                <template x-for="(k,ki) in arr(duelRes.volley && duelRes.volley['det' + side])" :key="'vk'+side+ki">
+                  <div class="py-1.5 border-t border-void-700/60 first:border-0">
+                    <div class="flex justify-between gap-2 text-xs"><span class="text-slate-200" x-text="k.unit"></span><span class="font-mono text-slate-400 whitespace-nowrap" x-text="'≈ ' + Math.round(k.kill) + ' pts détruits'"></span></div>
+                    <p class="text-[10px] font-mono text-slate-500" x-text="'cibles : ' + arr(k.targets).join(' · ')"></p>
+                  </div>
+                </template>
+              </div>
+            </template>
+          </div>
+        </section>
+
+        <!-- Avis IA -->
+        <section x-show="duelRes.aiRes" class="bg-void-900 border border-neon-cyan/30 rounded-xl p-5">
+          <h3 class="font-orbitron text-sm text-neon-cyan mb-3 tracking-wide">🤖 ANALYSE IA <span class="text-[10px] font-mono text-slate-500" x-text="duelRes.aiRes ? ('MU IA : ' + muFmt(duelRes.aiRes.mu)) : ''"></span></h3>
+          <p class="text-xs text-slate-300 leading-relaxed mb-3" x-text="duelRes.aiRes && duelRes.aiRes.resume"></p>
+          <div class="space-y-2">
+            <template x-for="(r,ri) in arr(duelRes.aiRes && duelRes.aiRes.raisons)" :key="'ar'+ri">
+              <div class="bg-void-800 border border-void-700 rounded-xl p-3">
+                <div class="flex items-center justify-between gap-3 mb-1">
+                  <span class="text-sm font-semibold text-slate-100" x-text="r.titre"></span>
+                  <span class="text-[10px] px-2 py-1 rounded-full font-mono whitespace-nowrap"
+                    :class="r.impact==='A' ? 'bg-neon-green/15 text-neon-green' : (r.impact==='B' ? 'bg-neon-red/15 text-neon-red' : 'bg-neon-amber/15 text-neon-amber')"
+                    x-text="r.impact==='A' ? 'Avantage A' : (r.impact==='B' ? 'Avantage B' : 'Neutre')"></span>
+                </div>
+                <p class="text-xs text-slate-400 leading-relaxed" x-text="r.texte"></p>
+              </div>
+            </template>
+          </div>
+        </section>
+
+        <!-- Clés du matchup -->
+        <section class="bg-void-900 border border-void-700 rounded-xl p-5">
+          <h3 class="font-orbitron text-sm text-neon-cyan mb-4 tracking-wide">CLÉS DU MATCHUP</h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <template x-for="side in ['A','B']" :key="'ck'+side">
+              <div class="bg-void-800 border rounded-xl p-4" :class="side==='A' ? 'border-neon-green/30' : 'border-neon-red/30'">
+                <h4 class="font-orbitron text-xs mb-2" :class="side==='A' ? 'text-neon-green' : 'text-neon-red'" x-text="'LISTE ' + side + ' CONTRE ' + (side==='A' ? 'B' : 'A')"></h4>
+                <p class="text-[11px] font-mono text-slate-500 mb-1">Outils à mettre en avant</p>
+                <ul class="space-y-1 mb-2"><template x-for="(t,ti) in arr(duelRes.cles[side].atouts)" :key="'ca'+side+ti"><li class="text-xs text-slate-400 flex gap-2"><span>▸</span><span x-text="t"></span></li></template></ul>
+                <p class="text-[11px] font-mono text-slate-500 mb-1">Cibles prioritaires chez l'adversaire</p>
+                <ul class="space-y-1 mb-2"><template x-for="(t,ti) in arr(duelRes.cles[side].cibles)" :key="'cc'+side+ti"><li class="text-xs text-slate-400 flex gap-2"><span>▸</span><span x-text="t"></span></li></template></ul>
+                <p x-show="arr(duelRes.cles[side].risques).length" class="text-[11px] font-mono text-neon-red mb-1">Points de vigilance</p>
+                <ul class="space-y-1 mb-2"><template x-for="(t,ti) in arr(duelRes.cles[side].risques)" :key="'cr'+side+ti"><li class="text-xs text-slate-400 flex gap-2"><span class="text-neon-red">▸</span><span x-text="t"></span></li></template></ul>
+                <p class="text-[11px] font-mono text-slate-500 mb-1">Philosophie</p>
+                <p class="text-xs text-slate-400 leading-relaxed" x-text="duelRes.cles[side].conseil"></p>
+                <p x-show="duelRes.aiRes && duelRes.aiRes['plan_' + side]" class="text-xs text-neon-cyan/90 leading-relaxed mt-2" x-text="duelRes.aiRes ? ('🤖 ' + (duelRes.aiRes['plan_' + side] || '')) : ''"></p>
+              </div>
+            </template>
+          </div>
+        </section>
+
+      </div>
+    </template>
+
     <!-- INPUT -->
-    <section class="bg-void-900 border border-void-700 rounded-xl p-5 space-y-4">
+    <section x-show="mode==='analyse'" class="bg-void-900 border border-void-700 rounded-xl p-5 space-y-4">
       <h2 class="font-orbitron text-xs tracking-widest text-neon-cyan">LISTE D'ARMÉE</h2>
       <textarea x-model="rawList" rows="10" placeholder="Collez ici votre liste (NewRecruit, application officielle Games Workshop, ALN...) — chaque unité doit comporter son coût en points."
         class="w-full bg-void-800 border border-void-700 rounded-lg px-3 py-3 text-sm font-mono text-slate-200 resize-y focus:border-neon-green/60"></textarea>
@@ -169,7 +416,7 @@
     </section>
 
     <!-- ===================== REPORT ===================== -->
-    <template x-if="report && !loading">
+    <template x-if="mode==='analyse' && report && !loading">
       <div x-ref="reportContent" class="space-y-6 bg-void-950 p-1">
 
 
@@ -637,13 +884,16 @@
             <label class="flex items-center gap-1.5 text-xs font-mono text-slate-300 px-1" x-show="newRole !== 'admin'">
               <input type="checkbox" x-model="newCanDelete" class="accent-emerald-400"> Peut supprimer
             </label>
+            <label class="flex items-center gap-1.5 text-xs font-mono text-slate-300 px-1" x-show="newRole !== 'admin'">
+              <input type="checkbox" x-model="newCanDuel" class="accent-emerald-400"> Accès Duel
+            </label>
             <button @click="createUser()" class="text-xs font-mono px-3 py-1.5 rounded-lg border border-neon-green/40 text-neon-green hover:bg-neon-green/10 transition">Créer</button>
           </div>
           <p class="text-[11px] font-mono text-slate-500" x-text="usersStatus"></p>
           <div class="divide-y divide-void-700">
             <div class="py-2.5 text-xs font-mono flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
               <span class="text-slate-200 font-semibold">admin <span class="text-neon-cyan font-normal">· ADMIN (intégré)</span></span>
-              <span class="text-[11px] text-slate-500">analyse / modification / suppression : toujours autorisées</span>
+              <span class="text-[11px] text-slate-500">analyse / modification / suppression / duel : toujours autorisés</span>
             </div>
             <template x-for="u in users" :key="u.username">
               <div class="py-2.5 text-xs font-mono space-y-2">
@@ -674,6 +924,10 @@
                     :class="u.canDelete ? 'border-neon-green/50 text-neon-green hover:bg-neon-green/10' : 'border-neon-red/50 text-neon-red hover:bg-neon-red/10'"
                     :title="u.canDelete ? 'Peut supprimer analyses et dossiers — cliquer pour retirer' : 'Ne peut pas supprimer analyses et dossiers — cliquer pour autoriser'"
                     x-text="u.canDelete ? 'Supprimer : ON' : 'Supprimer : OFF'"></button>
+                  <button x-show="u.role !== 'admin'" @click="toggleCanDuel(u)" class="px-2.5 py-1 rounded border transition whitespace-nowrap"
+                    :class="u.canDuel ? 'border-neon-green/50 text-neon-green hover:bg-neon-green/10' : 'border-neon-red/50 text-neon-red hover:bg-neon-red/10'"
+                    :title="u.canDuel ? 'Accès au mode Duel activé — cliquer pour retirer' : 'Accès au mode Duel non activé — cliquer pour autoriser'"
+                    x-text="u.canDuel ? 'Duel : ON' : 'Duel : OFF'"></button>
                   <button @click="resetUserPwd(u)" class="px-2.5 py-1 rounded border border-void-700 text-slate-400 hover:border-neon-amber/50 hover:text-neon-amber whitespace-nowrap">Mot de passe</button>
                   <button @click="toggleRole(u)" class="px-2.5 py-1 rounded border border-void-700 text-slate-400 hover:border-neon-cyan/50 hover:text-neon-cyan whitespace-nowrap" x-text="u.role === 'admin' ? 'Rétrograder' : 'Promouvoir'"></button>
                   <button @click="deleteUser(u)" class="px-2.5 py-1 rounded border border-void-700 text-slate-400 hover:border-neon-red/50 hover:text-neon-red whitespace-nowrap">Supprimer</button>
@@ -698,6 +952,29 @@
           <button @click="saveDataPack()" class="text-xs font-mono px-3 py-1.5 rounded-lg border border-neon-green/40 text-neon-green hover:bg-neon-green/10 transition">Enregistrer</button>
           <button @click="clearDataPack()" class="text-xs font-mono px-3 py-1.5 rounded-lg border border-void-700 text-slate-400 hover:border-slate-500 transition">Réinitialiser</button>
           <span class="text-[11px] font-mono text-slate-500" x-text="dataPackStatus"></span>
+        </div>
+      </details>
+
+      <!-- IA Pollinations (mode Duel) -->
+      <details class="bg-void-800 border border-void-700 rounded-lg p-3">
+        <summary class="text-xs font-mono text-slate-400 cursor-pointer">🤖 IA Pollinations — mode Duel
+          <span class="ml-2 text-neon-green" x-show="pollKey">● clé enregistrée</span></summary>
+        <p class="text-[11px] text-slate-500 mt-2 leading-relaxed">
+          Clé API Pollinations (<code class="text-neon-cyan">enter.pollinations.ai</code>). L'appel part directement du navigateur : utilisez de préférence une clé <b>publishable</b> (<code>pk_…</code>), pas une clé secrète.
+          L'IA reçoit les profils chiffrés des deux listes (fiches importées, armes, aptitudes, détachements) et rend son propre MU, moyenné avec celui du moteur local.
+          La clé est stockée <b>uniquement sur ce navigateur</b> (jamais envoyée à Firestore).
+        </p>
+        <input type="password" x-model="pollKey" autocomplete="off" placeholder="Clé API Pollinations"
+          class="w-full mt-2 bg-void-900 border border-void-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-200">
+        <div class="flex flex-wrap gap-2 mt-2">
+          <input x-model="pollModel" placeholder="Modèle (ex. openai)" class="w-40 bg-void-900 border border-void-700 rounded-lg px-3 py-1.5 text-xs font-mono text-slate-200">
+          <input x-model="pollUrl" placeholder="Endpoint" class="flex-1 min-w-[12rem] bg-void-900 border border-void-700 rounded-lg px-3 py-1.5 text-xs font-mono text-slate-200">
+        </div>
+        <div class="flex flex-wrap items-center gap-3 mt-2">
+          <button @click="savePoll()" class="text-xs font-mono px-3 py-1.5 rounded-lg border border-neon-green/40 text-neon-green hover:bg-neon-green/10 transition">Enregistrer</button>
+          <button @click="testPoll()" class="text-xs font-mono px-3 py-1.5 rounded-lg border border-neon-cyan/40 text-neon-cyan hover:bg-neon-cyan/10 transition">Tester</button>
+          <button @click="clearPoll()" class="text-xs font-mono px-3 py-1.5 rounded-lg border border-void-700 text-slate-400 hover:border-slate-500 transition">Effacer</button>
+          <span class="text-[11px] font-mono text-slate-500" x-text="pollStatus"></span>
         </div>
       </details>
 
@@ -753,6 +1030,24 @@
       </details>
       </div>
     </template>
+  </div>
+
+  <!-- ===================== CHARGEMENT DUEL ===================== -->
+  <div x-show="duelLoading" x-cloak x-transition.opacity class="fixed inset-0 z-[70] bg-void-950/90 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="w-full max-w-sm bg-void-900 border border-neon-red/40 rounded-xl p-6 text-center">
+      <div class="mx-auto w-16 h-16 rounded-full border-4 border-void-700 border-t-neon-red animate-spin"></div>
+      <h3 class="font-orbitron tracking-widest text-neon-red mt-5 text-sm">PRÉPARATION DU DUEL</h3>
+      <p class="text-[11px] font-mono text-slate-400 mt-1" x-text="duelStatus || 'Analyse en cours…'"></p>
+      <ul class="mt-4 space-y-1.5 text-left">
+        <template x-for="(s,si) in duelStepsActive()" :key="'ds'+si">
+          <li class="flex items-center gap-2 text-xs font-mono" :class="si < duelStep ? 'text-neon-green' : (si === duelStep ? 'text-slate-100' : 'text-slate-600')">
+            <span class="w-4 text-center" x-text="si < duelStep ? '✓' : (si === duelStep ? '▸' : '·')"></span><span x-text="s"></span>
+          </li>
+        </template>
+      </ul>
+      <div class="mt-4 h-1.5 rounded bg-void-800 overflow-hidden"><div class="h-full bg-neon-red transition-all duration-500" :style="'width:' + Math.round((duelStep + 0.5) / duelStepsActive().length * 100) + '%'"></div></div>
+      <p class="text-[10px] font-mono text-slate-600 mt-2" x-text="duelElapsed + ' s'"></p>
+    </div>
   </div>
 
   <footer class="border-t border-void-700 py-4 text-center text-[10px] text-slate-600 font-mono">
@@ -1128,7 +1423,7 @@ function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, Math.round(v))); }
    ========================================================= */
 const WAHA = (() => {
   const CAL = { kK:400, kL:40, kD:80, kOC:60, thAC:2.0, thAH:5.5, thML:3.5, thTG:11, thSC:6, covMin:0.4, roleMin:1.3, roleMax:2 };
-  const BM = { H:{T:9,sv:3,W:12,inv:0}, E:{T:4,sv:3,W:2,inv:0}, Ho:{T:3,sv:5,W:1,inv:0} };
+  const BM = { H:{T:9,sv:3,W:12,inv:0,kw:['vehicle','monster'],blast:1}, E:{T:4,sv:3,W:2,inv:0,kw:['infantry'],blast:1}, Ho:{T:3,sv:5,W:1,inv:0,kw:['infantry'],blast:1.3} };
   const strip = s => String(s||'').replace(/<[^>]*>/g,' ').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/\s+/g,' ').trim();
   const norm = s => String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/’/g,"'").replace(/[^a-z0-9' ]+/g,' ').replace(/\s+/g,' ').trim();
   const sing = s => s.replace(/s\b/g,'');
@@ -1138,6 +1433,92 @@ const WAHA = (() => {
   const pWound = (S,T) => S>=2*T ? 5/6 : S>T ? 4/6 : S===T ? .5 : S*2<=T ? 1/6 : 1/3;
   const pFail = (sv,ap,inv,fnp) => { let b = (parseInt(sv)||7) + Math.abs(parseInt(ap)||0); const i = parseInt(inv); if (i && i<b) b = i; let f = b>6 ? 1 : (b-1)/6; if (fnp) f *= (fnp-1)/6; return Math.max(f, .02); };
   const f1 = n => (Math.round(n*10)/10).toString();
+  // Mots-clés d'arme (texte de la colonne description, déjà en minuscules) : touches mortelles, touches supplémentaires, blessures dévastatrices, anti-X, jumelé, tir rapide, fusion...
+  const wkw = d => {
+    const fl = {}; let m;
+    if (/lethal hits/.test(d)) fl.lh = 1;
+    if ((m = d.match(/sustained hits\s*(d3|d6|\d+)/))) fl.sh = avg(m[1]); else if (/sustained hits/.test(d)) fl.sh = 1;
+    if (/devastating wounds/.test(d)) fl.dw = 1;
+    if (/twin-?linked/.test(d)) fl.tl = 1;
+    if (/torrent/.test(d)) fl.tor = 1;
+    if ((m = d.match(/rapid fire\s*(d3|d6|\d+)/))) fl.rf = avg(m[1]);
+    if ((m = d.match(/melta\s*(d3|d6|\d+)/))) fl.mel = avg(m[1]);
+    const an = {}, re = /anti-([a-z]+)\s*(\d)\+/g;
+    while ((m = re.exec(d))) an[m[1]] = +m[2];
+    if (Object.keys(an).length) fl.an = an;
+    return fl;
+  };
+  // Mots-clés de cible / d'unité reconnus dans les textes de règles
+  const KWS = ['infantry','vehicle','monster','character','mounted','walker','fly','battleline','psyker','titanic','beasts','swarm'];
+  // Texte d'effet d'un stratagème (sans l'en-tête « Target : … » qui désigne l'unité AMIE, pas la cible de l'attaque)
+  const effectOf = t => { t = String(t||''); const m = t.match(/effect:\s*(.*)/i); return m ? m[1] : t.replace(/^\s*target:.*?(?=(?:when|effect|restrictions):|$)/i, ''); };
+  // Unités AMIES éligibles (« Target : one INFANTRY unit from your army ») -> liste de mots-clés requis (vide = toutes)
+  const ownReq = t => { const m = String(t||'').match(/target:(.*?)(?:effect:|restrictions:|$)/i); const seg = m ? m[1].toLowerCase() : ''; return KWS.filter(k => new RegExp('\\b'+k+'\\b').test(seg)); };
+  // Condition de CIBLE ENNEMIE d'un bonus (« …an attack that targets a MONSTER or VEHICLE unit… »)
+  const tgtCond = t => {
+    const out = new Set();
+    t.replace(/(?:targets?|targeting|against|attacking|charged?)\b([^.;]{0,70})/g, (_, seg) => { KWS.forEach(k => { if (new RegExp('\\b'+k+'\\b').test(seg)) out.add(k); }); return _; });
+    return [...out];
+  };
+  // Détection des bonus offensifs dans un texte de règle : relances, +1 touche/blessure/force/dégât, PA, blessures dévastatrices, anti-X, jumelé, critiques...
+  // Les conditions de cible (INFANTRY / VEHICLE / MONSTER…) sont mémorisées par bonus dans e.cnd : le bonus ne s'applique qu'aux cibles correspondantes.
+  const flagsOf = t => {
+    t = String(t||'').toLowerCase(); const e = {}, has = r => r.test(t); let m;
+    if (has(/re-?roll[^.]{0,40}hit rolls?/) || has(/hit rolls?[^.]{0,30}re-?roll/)) e.rrH = has(/re-?roll[^.]{0,40}hit rolls? of (?:a (?:natural |unmodified )?)?1\b|hit rolls? of (?:a (?:natural |unmodified )?)?1[^.]{0,20}re-?roll/) ? 1 : 2;
+    if (has(/re-?roll[^.]{0,40}wound rolls?/) || has(/wound rolls?[^.]{0,30}re-?roll/)) e.rrW = has(/re-?roll[^.]{0,40}wound rolls? of (?:a (?:natural |unmodified )?)?1\b|wound rolls? of (?:a (?:natural |unmodified )?)?1[^.]{0,20}re-?roll/) ? 1 : 2;
+    if (e.rrH === 2 && has(/re-?roll one (?:hit|wound|damage)/)) e.rrH = 1;
+    if (e.rrW === 2 && has(/re-?roll one (?:hit|wound|damage)/)) e.rrW = 1;
+    if (has(/add 1 to (?:the )?hit rolls?|\+1 to hit|\+1 (?:ws|bs)\b|improve (?:the )?(?:ballistic|weapon) skill[^.]{0,30}by 1/)) e.hit1 = 1;
+    if (has(/add 1 to (?:the )?wound rolls?|\+1 to wound/)) e.wnd1 = 1;
+    if (has(/improve (?:the )?(?:armou?r penetration|ap)[^.]{0,40}by 1/)) e.ap = 1;
+    if (has(/add 1 to the damage characteristic|damage characteristic[^.]{0,30}(?:is )?(?:increased|improved) by 1/)) e.d1 = 1;
+    if (has(/add 1 to the strength characteristic|strength characteristic[^.]{0,30}(?:is )?increased by 1/)) e.s1 = 1;
+    if (has(/twin-?linked/)) e.tl = 1;
+    if (has(/critical hit[^.]{0,30}(?:on|of) (?:a |an )?(?:unmodified )?[56]\+|(?:unmodified )?hit rolls? of 5\+[^.]{0,30}critical/)) e.c5 = 1;
+    if (has(/devastating wounds/)) e.dw = 1;
+    if (has(/lethal hits/)) e.lh = 1;
+    if ((m = t.match(/sustained hits\s*(d3|d6|\d+)/))) e.sh = avg(m[1]);
+    const an = {}, re = /anti-([a-z]+)\s*(\d)\+/g;
+    while ((m = re.exec(t))) an[m[1]] = +m[2];
+    if (Object.keys(an).length) e.an = an;
+    const keys = Object.keys(e);
+    if (keys.length) { const c = tgtCond(t); if (c.length) { e.cnd = {}; keys.forEach(k => { e.cnd[k] = c; }); } }
+    return e;
+  };
+  // Effets d'un bonus qui s'appliquent réellement à une cible donnée b (mots-clés) : retire les bonus conditionnés à un autre type de cible
+  const effFor = (e, b) => {
+    if (!e || !e.cnd) return e || {};
+    const o = {}, kw = (b && b.kw) || [];
+    for (const k in e) { if (k === 'cnd') continue; const c = e.cnd[k]; if (!c || c.some(x => kw.includes(x))) o[k] = e[k]; }
+    return o;
+  };
+  // Effets DÉFENSIFS d'un texte de règle (détachement, règle d'armée, stratagème) : FNP, invulnérable, -1 pour toucher/blesser, -1 aux dégâts
+  const defFlags = t => {
+    t = String(t||'').toLowerCase(); const o = {}; let m;
+    if ((m = t.match(/feel no pain\s*(\d)\+/) || t.match(/(\d)\+\s*feel no pain/))) o.fnp = +m[1];
+    if ((m = t.match(/(\d)\+\s*invulnerable save/) || t.match(/invulnerable save of (\d)\+/))) o.inv = +m[1];
+    if (/subtract 1 from the hit roll/.test(t) && /(attack|enemy|target)/.test(t)) o.hitm = 1;
+    if (/subtract 1 from the wound roll/.test(t) && /(attack|enemy|target)/.test(t)) o.wndm = 1;
+    if (/subtract 1 from the damage characteristic/.test(t)) o.dr = 1;
+    return o;
+  };
+  // Ce qu'une aptitude de FICHE accorde à l'unité elle-même (FNP, invulnérable, -1 dégât) — lu dans le TEXTE de l'aptitude, pas seulement dans son nom
+  const selfDef = (t, isFac, name) => {
+    t = String(t||'').toLowerCase(); const o = {};
+    if (/within\s*\d+/.test(t) && /(friendly|other|nearby)/.test(t) && !/\bthis (unit|model)\b/.test(t)) return o;       // aura : traitée comme règle pondérée
+    if (isFac && !/(resilien|feel no pain|disgust)/.test(String(name||'').toLowerCase()) && !/\b(all|every|each)\b[^.]{0,80}\bfeel no pain/.test(t)) return o;
+    let m = t.match(/feel no pain\s*(\d)\+(?![^.]{0,25}mortal)/) || t.match(/(\d)\+\s*feel no pain/) || t.match(/roll (?:one|a) d6[^.]{0,40}?(\d)\+[^.]{0,40}?(?:not lost|ignore)/);
+    if (m) o.fnp = +m[1];
+    if ((m = t.match(/(\d)\+\s*invulnerable save(?![^.]{0,25}(?:ranged|melee))/))) o.inv = +m[1];
+    if (/subtract 1 from the damage characteristic of (?:that|each) attack/.test(t)) o.dr = 1;
+    if (/(?:attacks?)[^.]{0,50}(?:target|targeting|made against)[^.]{0,25}(?:this unit|the bearer)[^.]{0,60}subtract 1 from the hit roll|subtract 1 from the hit roll[^.]{0,70}(?:target|made against)[^.]{0,25}(?:this unit|the bearer)/.test(t)) o.hitm = 1;
+    return o;
+  };
+  const TAGN = { rrH:v => v===2 ? 'relance des touches' : 'relance des 1 pour toucher', rrW:v => v===2 ? 'relance des blessures' : 'relance des 1 pour blesser', hit1:() => '+1 pour toucher', wnd1:() => '+1 pour blesser', ap:() => '+1 PA', dw:() => 'Devastating Wounds', lh:() => 'Lethal Hits', sh:v => 'Sustained Hits '+v,
+    d1:() => '+1 dégât', s1:() => '+1 force', tl:() => 'jumelé (relance des blessures)', c5:() => 'critiques sur 5+', an:v => 'Anti-' + Object.entries(v).map(([k,x]) => k + ' ' + x + '+').join('/') };
+  // Valeur approximative d'un jeu de bonus (sert à classer les stratagèmes par intérêt offensif)
+  const GAIN = { rrH:v => v===2 ? .6 : .25, rrW:v => v===2 ? .6 : .25, hit1:() => .45, wnd1:() => .45, ap:() => .35, dw:() => .5, lh:() => .4, sh:() => .4, d1:() => .5, s1:() => .3, tl:() => .5, c5:() => .3, an:() => .4 };
+  const gainOf = e => { let g = 0; for (const k in e) if (GAIN[k]) g += GAIN[k](e[k]); return g; };
 
   function parseCSV(text) {
     const L = String(text||'').replace(/^\uFEFF/,'').split(/\r?\n/);
@@ -1167,7 +1548,7 @@ const WAHA = (() => {
       if (wg[k] && wg[k].lw <= lw) return;
       const d = strip(r.description).toLowerCase();
       wg[k] = { lw, u, w:{ n:r.name, t:/melee/i.test(r.type)?'M':'R', a:avg(r.A), h:/torrent/.test(d)?1:pHit(r.BS_WS), s:num(r.S)||4, ap:r.AP, d:avg(r.D)||1,
-        f:(/lethal hits/.test(d)?1.1:1)*(/sustained hits/.test(d)?1.12:1)*(/devastating wounds/.test(d)?1.08:1), bl:/blast/.test(d) } };
+        f:(/lethal hits/.test(d)?1.1:1)*(/sustained hits/.test(d)?1.12:1)*(/devastating wounds/.test(d)?1.08:1), bl:/blast/.test(d), fl:wkw(d) } };
     });
     Object.values(wg).forEach(x => x.u.wp.push(x.w));
     T('datasheets_abilities.csv').forEach(r => {
@@ -1185,7 +1566,7 @@ const WAHA = (() => {
     const D = {}, cut = (s,n) => strip(s).slice(0,n);
     T('detachments.csv').forEach(r => D[r.id] = { id:r.id, n:r.name, nl:norm(r.name), f:fac[r.faction_id]||'', fd:r.force_disposition||'', dp:r.dp||'', st:[], ab:[], en:[] });
     T('stratagems.csv').forEach(r => { const d = D[r.detachment_id]; if (d) d.st.push({ n:r.name, cp:r.cp_cost, turn:r.turn, ph:r.phase, d:cut(r.description,900) }); });
-    T('detachment_abilities.csv').forEach(r => { const d = D[r.detachment_id]; if (d) d.ab.push({ n:r.name, d:cut(r.description,600) }); });
+    T('detachment_abilities.csv').forEach(r => { const d = D[r.detachment_id]; if (d) d.ab.push({ n:r.name, d:cut(r.description,1200) }); });
     T('enhancements.csv').forEach(r => { const d = D[r.detachment_id]; if (d) d.en.push({ n:r.name, c:r.cost, d:cut(r.description,400) }); });
     const lu = T('last_update.csv')[0];
     return { units:Object.values(U).filter(u => u.mod.length), det:Object.values(D), facab:FA, meta:{ last: lu ? lu.last_update : '' } };
@@ -1207,20 +1588,270 @@ const WAHA = (() => {
     return c.length > 1 ? (c.find(u => u.cost.some(x => x.c === pts)) || c[0]) : c[0];
   }
 
+  // Détachement(s) joués : lecture de l'en-tête (« Detachment : X », « A, B and C (3 Detachment Points) », nom seul sur une ligne), puis repli par recherche du nom dans la liste.
+  // Utilisée à la fois par le module Règles (affichage) et par le moteur de duel (bonus chiffrés) : les deux lisent désormais les MÊMES détachements.
+  function findDets(raw, facName) {
+    const db = api.db, out = { found:[], declaredMiss:[], hasDecl:false, declFound:false };
+    if (!db || !(db.det || []).length) return out;
+    const nr = ' ' + norm(raw) + ' ', hdr = String(raw || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean).slice(0, 14);
+    const byName = {}; db.det.forEach(d => { (byName[d.nl] = byName[d.nl] || []).push(d); });
+    const seg = l => l.replace(/^(?:detachments?|détachements?)\s*[:\-–]\s*/i, '').replace(/\(.*?\)/g, ' ')
+      .split(/\s*,\s*(?:and\s+|et\s+)?|\s+(?:and|et)\s+|\s*&\s*|\s*\+\s*/i).map(x => x.trim()).filter(Boolean);
+    let found = [];
+    hdr.forEach(l => {
+      const dp = /detachment points?|points? de d[ée]tachement/i.test(l) || /^(?:detachments?|détachements?)\s*[:\-–]/i.test(l);
+      if (dp) out.hasDecl = true;
+      const hits = [];
+      seg(l).forEach(sg => { const k = norm(sg); if (byName[k]) hits.push(...byName[k]); else if (dp && k) out.declaredMiss.push(sg); });
+      if (hits.length) { out.hasDecl = true; found.push(...hits); }
+    });
+    out.declFound = found.length > 0;
+    if (!out.declFound && out.hasDecl) return out;
+    if (!out.declFound) found = db.det.filter(d => d.nl.length >= 5 && nr.includes(' ' + d.nl + ' '));
+    if (!out.declFound && facName && found.some(d => d.f === facName)) found = found.filter(d => d.f === facName);
+    out.found = found.filter((d, i, a) => a.findIndex(e => e.nl === d.nl && e.f === d.f) === i).slice(0, 3);
+    return out;
+  }
+
   const BMP = { H:150/12, E:20/2, Ho:8 };   // pts adverses détruits par point de dégât : char lourd (150 pts/12 PV), élite (20 pts/2 PV), horde (8 pts/1 PV)
   const costRow = (d, pts) => { const rows = d.cost.filter(x => x.c > 0); return !rows.length ? { c:0, n:1 } : (rows.find(x => x.c === pts) || rows.reduce((b,x) => Math.abs(x.c-pts) < Math.abs(b.c-pts) ? x : b)); };
-  function metrics(d, pts) {
+  // Dégâts attendus d'UNE arme (tous tirs/coups confondus) contre une cible type (H/E/Ho), avec mots-clés d'arme et bonus éventuels e
+  function dmgCalc(w, k, e) { return dmgVs(w, BM[k], e); }
+  // b : cible { T, sv, inv, W (PV/figurine), fnp, kw[], blast }
+  function dmgVs(w, b, e) {
+    e = effFor(e, b);                       // bonus conditionnés à un type de cible (INFANTRY / VEHICLE / MONSTER…) : retirés si la cible ne correspond pas
+    const fl = w.fl;
+    const tor = (fl && fl.tor) || w.h >= 1;
+    const A = w.a + (fl && fl.rf ? .5*fl.rf : 0);
+    let ph = w.h, pc = tor ? 0 : 1/6;
+    if (!tor) {
+      if (e.c5) pc = 2/6;
+      if (e.hit1) ph = Math.min(1, ph + 1/6);
+      const ph0 = ph;
+      if (e.rrH === 2) { ph = ph0 + (1-ph0)*ph0; pc = pc + (1-ph0)*pc; } else if (e.rrH === 1) ph = ph0*(1 + 1/6);
+      pc = Math.min(pc, ph);
+    }
+    const hits = A*ph, crit = A*pc;
+    const lh = (fl && fl.lh) || e.lh, dw = (fl && fl.dw) || e.dw, sh = (fl && fl.sh || 0) + (e.sh || 0);
+    const auto = lh ? crit : 0;
+    const roll = Math.max(0, hits + crit*sh - auto);                    // jets de blessure effectifs
+    let pw = pWound(w.s + (e.s1 || 0), b.T), pcw = 1/6;
+    const an = {}; [fl && fl.an, e.an].forEach(x => { if (x) for (const key in x) an[key] = Math.min(an[key] || 9, x[key]); });
+    if (Object.keys(an).length) { let th = 9; for (const key in an) if ((b.kw || []).includes(key)) th = Math.min(th, an[key]); if (th < 9) { pcw = (7-th)/6; pw = Math.max(pw, pcw); } }
+    if (e.wnd1) pw = Math.min(5/6, pw + 1/6);
+    const pw0 = pw, rr = ((fl && fl.tl) || e.tl) ? 2 : (e.rrW || 0);
+    if (rr === 2) { pw = pw0 + (1-pw0)*pw0; pcw = pcw + (1-pw0)*pcw; } else if (rr === 1) pw = pw0*(1 + 1/6);
+    pcw = Math.min(pcw, pw);
+    const wounds = roll*pw + auto, critW = dw ? roll*pcw : 0;      // blessures dévastatrices : ignorent les sauvegardes
+    const pf = pFail(b.sv, -(Math.abs(parseInt(w.ap)||0) + (e.ap||0)), b.inv, b.fnp);
+    const dmg = Math.max(1, Math.min(w.d + (e.d1 ? 1 : 0) + (fl && fl.mel ? .5*fl.mel : 0), b.W) - (b.dr || 0));
+    const fnpF = b.fnp ? (b.fnp-1)/6 : 1;
+    return ((wounds - critW)*pf + critW*fnpF) * dmg * (fl ? 1 : w.f) * (w.bl ? (b.blast || 1) : 1);
+  }
+  function wOut(w, k, bf) { return wOutT(w, BM[k], bf); }
+  function wOutT(w, b, bf) {
+    const base = dmgVs(w, b, {});
+    if (!bf || !bf.tiers || !bf.tiers.length) return base;
+    const T = bf.tiers; let res = base*(1 - T[0].wt);
+    T.forEach((t, i) => { res += dmgVs(w, b, t.e) * (t.wt - (T[i+1] ? T[i+1].wt : 0)); });
+    return res;
+  }
+  // Dégâts attendus d'une unité (tir + 70 % de la mêlée) sur une cible réelle
+  function unitDmgT(a, tg) {
+    let tot = 0;
+    for (const t of ['R','M']) {
+      const vals = a.d.wp.filter(w => w.t === t).map(w => wOutT(w, tg, a.bf)).sort((x,y) => y-x).slice(0, a.n === 1 ? 3 : 99);
+      let s = 0; vals.forEach((o,i) => { s += o * (a.n === 1 || i > 0 ? 1 : a.n); });
+      tot += t === 'R' ? s : s*0.7;
+    }
+    if (a.d._mw) tot += a.d._mw * (tg.fnp ? (tg.fnp - 1) / 6 : 1);   // blessures mortelles : ignorent sauvegardes et invulnérables, pas le FNP
+    return tot;
+  }
+  // Meilleure sauvegarde invulnérable entre celle de la fiche (« 4+ », « - ») et celle accordée par une aptitude (nombre)
+  function bestInv(a, b) { const x = parseInt(a) || 0, y = b || 0; return x && y ? String(Math.min(x, y)) : String(x || y || '-'); }
+  // Aptitudes défensives d'une fiche (FNP, invulnérable, -1 dégât) lues dans le TEXTE des aptitudes (+ règle d'armée explicite), une fois par fiche
+  function ensureDef(d) {
+    if (!d || d._dd) return d;
+    d._dd = 1;
+    const upd = sd => { if (sd.fnp && (!d.fnp || sd.fnp < d.fnp)) d.fnp = sd.fnp; if (sd.inv && (!d.invx || sd.inv < d.invx)) d.invx = sd.inv; if (sd.dr) d.dr = Math.max(d.dr || 0, sd.dr); if (sd.hitm) d.hitm = 1; };
+    (d.abx || []).forEach(a => upd(selfDef(a.n + ' ' + a.d, false, a.n)));
+    (((api.db && api.db.facab) || {})[d.f] || []).forEach(a => upd(selfDef(a.n + ' ' + a.d, true, a.n)));
+    d._mw = mwOf(d);
+    return d;
+  }
+  // Blessures mortelles infligées à une unité ENNEMIE par les aptitudes de la fiche (pouvoirs psychiques, tirs spéciaux…) : moyenne par tour, pondérée 0.5 (souvent conditionnelles)
+  function mwOf(d) {
+    let tot = 0;
+    (d.abx || []).forEach(a => {
+      const t = String(a.d || '').toLowerCase(); if (!/mortal wound/.test(t) || !/enemy/.test(t)) return;
+      let best = 0, m; const re = /(d3|d6|\d+)(?:\s*\+\s*(\d+))?\s+mortal wounds?/g;
+      while ((m = re.exec(t))) {
+        const before = t.slice(Math.max(0, m.index - 70), m.index);
+        if (/(this (?:unit|model)|the bearer|that model)[^.]{0,25}$/.test(before) || /hazardous|on a (?:roll of )?1\b/.test(before)) continue;   // coût / danger pour soi, pas un dégât infligé
+        best = Math.max(best, avg(m[1]) + (+m[2] || 0));
+      }
+      tot += best;
+    });
+    return Math.min(6, tot * .5);
+  }
+  const kindOf = v => { const kw = v.d.kw || []; return (kw.includes('vehicle') || kw.includes('monster') || kw.includes('titanic')) ? 'H' : (((v.d.mod[0] && v.d.mod[0].W) <= 1 || kw.includes('swarm')) ? 'Ho' : 'E'); };
+  // Une volée complète de la liste « att » sur les unités réelles de « def » : chaque unité choisit ses meilleures cibles, les PV restants sont décomptés.
+  // Les règles défensives de détachement / d'armée (v.dfm) réduisent les dégâts reçus ; byType = part des points détruits par type de cible (lourdes / élites / hordes).
+  function volley(att, def) {
+    const P = def.map(v => v.pts), ptsD = P.reduce((a,b) => a+b, 0);
+    const byType = { H:{ pts:0, kill:0 }, E:{ pts:0, kill:0 }, Ho:{ pts:0, kill:0 } };
+    if (!att.length || !def.length) return { kill:0, frac:0, ptsD, det:[], byType };
+    const tg = def.map(v => { const m = v.d.mod[0]; ensureDef(v.d); return { T:m.T, sv:m.Sv, inv:bestInv(m.inv, v.d.invx), W:m.W, fnp:v.d.fnp, dr:v.d.dr || 0, kw:v.d.kw, blast:v.n >= 6 ? 1.25 : 1 }; });
+    const Wt = def.map(v => Math.max(1, v.d.mod[0].W * v.n));
+    const dfm = def.map(v => (v.dfm || 1) * (v.d.hitm ? .85 : 1)), kd = def.map(kindOf), killJ = def.map(() => 0);
+    const dm = att.map(a => tg.map((t, j) => unitDmgT(a, t) * dfm[j]));
+    const best = i => Math.max(0, ...dm[i].map((q,j) => q/Wt[j]*P[j]));
+    const order = att.map((a,i) => i).sort((x,y) => best(y) - best(x));
+    const rem = def.map(() => 1), det = []; let total = 0;
+    order.forEach(i => {
+      let budget = 1, got = 0; const tgts = {};
+      for (let g = 0; g < 8 && budget > 1e-6; g++) {
+        let bj = -1, bd = 0;
+        def.forEach((v,j) => { if (rem[j] > 1e-6 && dm[i][j] > 0) { const dens = dm[i][j]/Wt[j]*P[j]; if (dens > bd) { bd = dens; bj = j; } } });
+        if (bj < 0) break;
+        const per = dm[i][bj]/Wt[bj], use = Math.min(budget, rem[bj]/per), val = use*per*P[bj];
+        rem[bj] -= use*per; budget -= use; got += val; killJ[bj] += val; tgts[def[bj].name] = (tgts[def[bj].name]||0) + val;
+      }
+      total += got;
+      if (got > 0.5) det.push({ unit:att[i].name, pts:att[i].pts, kill:got, targets:Object.entries(tgts).sort((a,b) => b[1]-a[1]).slice(0,2).map(e => e[0]) });
+    });
+    def.forEach((v, j) => { byType[kd[j]].pts += P[j]; byType[kd[j]].kill += killJ[j]; });
+    return { kill:total, frac:total/ptsD, ptsD, det:det.sort((a,b) => b.kill-a.kill), byType };
+  }
+  // Bonus offensifs par unité : aptitudes propres, aptitudes de personnage rattaché, détachement et règle d'armée (pondérés : souvent conditionnels).
+  // Les bonus conditionnés à un type de cible (« contre INFANTRY », « contre MONSTER / VEHICLE »…) ne s'appliquent qu'aux cibles correspondantes (cf. effFor / dmgVs).
+  function buffMap(units, pre, raw) {
+    const out = units.map(() => null), acc = units.map(() => []);
+    const put = (i, e, wt, src) => { if (Object.keys(e).length) acc[i].push({ e, wt, src }); };
+    const auraLike = t => /within\s*\d+/i.test(t) && /friendly/i.test(t);
+    pre.forEach((d, i) => { if (!d) return;
+      d.abx.forEach(a => { if (!auraLike(a.d)) put(i, flagsOf(a.d), .8, a.n); else { const e = flagsOf(a.d); pre.forEach((b, j) => { if (b) put(j, e, .5, a.n + ' (aura de ' + d.n + ')'); }); } });
+      const FA = api.db && api.db.facab && api.db.facab[d.f]; if (FA) FA.forEach(a => put(i, flagsOf(a.d), .5, a.n));
+      d.abx.forEach(a => { if (/lead|bodyguard|attached/i.test(a.d) && !auraLike(a.d)) { const e = flagsOf(a.d); pre.forEach((b, j) => { if (b && j !== i && d.leads.includes(b.id)) put(j, e, .8, a.n + ' (' + d.n + ')'); }); } });
+    });
+    const nr = ' ' + norm(raw || '') + ' ', fpts = {};
+    pre.forEach((d, i) => { if (d) fpts[d.f] = (fpts[d.f]||0) + units[i].pts; });
+    const top = Object.entries(fpts).sort((a,b) => b[1]-a[1])[0];
+    const FD = findDets(raw, top && top[0]);
+    let dets = FD.found;
+    if (!dets.length) {   // repli : nom de détachement trouvé n'importe où dans le texte
+      const named = ((api.db && api.db.det) || []).filter(x => x.nl.length >= 5 && nr.includes(' ' + x.nl + ' '));
+      dets = named.filter(x => !top || x.f === top[0]).length ? named.filter(x => !top || x.f === top[0]) : named;
+    }
+    const lines = String(raw || '').split(/\r?\n/).map(l => l.trim()), ulow = units.map(u => u.lower);
+    const bearerOf = nm => {   // unité sous laquelle l'amélioration est écrite dans la liste
+      const k = ' ' + norm(nm) + ' ', li = lines.findIndex(l => (' ' + norm(l) + ' ').includes(k));
+      for (let j = li; j >= 0; j--) { const ui = ulow.indexOf(lines[j].toLowerCase()); if (ui >= 0 && pre[ui]) return ui; }
+      return -1;
+    };
+    const mpts = pre.reduce((a, d, i) => a + (d ? units[i].pts : 0), 0) || 1;
+    const subjOk = (t, d) => {   // l'aptitude ne profite qu'aux unités visées (« friendly SEKHETAR ROBOTS units », « Vehicle unit from your army »…)
+      t = String(t || '');
+      const m = t.match(/(?:while|if) an? friendly ((?:[A-Z]{3,}\s?)+?)\s*units? is within/) || t.match(/[Ff]riendly ((?:[A-Z]{3,}\s?)+?)\s*(?:units?|models?)/);
+      if (m) { const k = norm(m[1]); return d.kw.includes(k) || k.split(' ').every(w => d.kw.includes(w) || d.kw.includes(w.replace(/s$/, ''))); }
+      const m2 = t.toLowerCase().slice(0, 200).match(/(?:friendly|from your army|each time an?)[^.;:]{0,60}?\b(vehicle|monster|infantry|character|mounted|walker|battleline|psyker|titanic|beasts|swarm)\b/);
+      return !m2 || /target|against|charge/.test(m2[0]) || d.kw.includes(m2[1]);
+    };
+    const elig = (d, req) => !req.length || req.every(k => d.kw.includes(k));
+    dets.forEach(x => {
+      x.ab.forEach(a => { const e = flagsOf(a.d); pre.forEach((d, i) => { if (d && subjOk(a.d, d)) put(i, e, .5, a.n + ' (' + x.n + ')'); }); });
+      x.en.forEach(en => {   // améliorations présentes dans la liste : portées par leur unité (et l'escorte du personnage)
+        if (!nr.includes(' ' + norm(en.n) + ' ')) return;
+        const e = flagsOf(en.d), bi = bearerOf(en.n); if (bi < 0) return;
+        put(bi, e, .8, en.n + ' (amélioration)');
+        pre.forEach((b, j) => { if (b && j !== bi && pre[bi].leads.includes(b.id)) put(j, e, .8, en.n + ' (amélioration)'); });
+      });
+      // stratagèmes : les 2 plus rentables (gain offensif × part des points éligibles, <= 2 PC) sont supposés jouables une fois par tour -> faible pondération
+      x.st.map(s => { const req = ownReq(s.d), e = flagsOf(effectOf(s.d)), share = pre.reduce((a, d, i) => a + (d && elig(d, req) ? units[i].pts : 0), 0) / mpts; return { s, e, req, g: gainOf(e) * share }; })
+        .filter(o => o.g > 0 && (parseInt(o.s.cp) || 1) <= 2).sort((a, b) => b.g - a.g).slice(0, 2)
+        .forEach(o => pre.forEach((d, i) => { if (d && elig(d, o.req)) put(i, o.e, .3, o.s.n + ' (stratagème)'); }));
+    });
+    acc.forEach((L, i) => {
+      if (!L.length) return;
+      const e = {}, fw = {}, cd = {}, txt = [];
+      L.forEach(s => { for (const k in s.e) {
+        if (k === 'cnd') continue;
+        const c = s.e.cnd && s.e.cnd[k] ? s.e.cnd[k] : null;
+        if (k === 'an') { e.an = e.an || {}; for (const x in s.e.an) e.an[x] = Math.min(e.an[x] || 9, s.e.an[x]); } else e[k] = Math.max(e[k] || 0, s.e[k]);
+        fw[k] = Math.max(fw[k] || 0, s.wt);
+        if (cd[k] === undefined) cd[k] = c ? c.slice() : null; else if (cd[k] !== null) cd[k] = c ? [...new Set([...cd[k], ...c])] : null;   // un bonus sans condition l'emporte
+        const t = TAGN[k](s.e[k]) + (c ? ' contre ' + c.join('/') : '') + ' [' + s.src + ']'; if (!txt.includes(t)) txt.push(t);
+      } });
+      // paliers de probabilité : chaque bonus compte avec le poids de sa meilleure source (aptitude propre 0.8, détachement/aura 0.5, stratagème 0.3)
+      const ws = [...new Set(Object.values(fw))].sort((a, b) => b - a);
+      out[i] = { tiers: ws.map(w => {
+        const ks = Object.keys(e).filter(k => fw[k] >= w), t = Object.fromEntries(ks.map(k => [k, e[k]])), cn = {};
+        ks.forEach(k => { if (cd[k]) cn[k] = cd[k]; }); if (Object.keys(cn).length) t.cnd = cn;
+        return { wt: w, e: t };
+      }), txt: txt.slice(0, 14).join(' ; ') };
+    });
+    // diagnostic : ce qui a réellement été lu dans les règles (affiché dans le duel)
+    const on = o => Object.keys(o).some(k => k !== 'cnd');
+    const faL = (top && api.db && api.db.facab && api.db.facab[top[0]]) || [];
+    out.dets = dets;
+    const cut2 = (t, n) => { t = strip(t); return t.length > n ? t.slice(0, n - 1) + '…' : t; };
+    const stt = t => on(flagsOf(t)) ? 'offensif' : (Object.keys(defFlags(t)).length ? 'défensif' : 'qualitatif');
+    out.led = { fa: faL.map(a => ({ n: a.n, t: cut2(a.d, 240), s: stt(a.d) })),
+      dets: dets.map(x => ({ n: x.n, ab: x.ab.map(a => ({ n: a.n, t: cut2(a.d, 240), s: stt(a.d) })),
+        st: x.st.map(q => ({ n: q.n, cp: q.cp, t: cut2(effectOf(q.d), 240), s: stt(effectOf(q.d)) })),
+        en: x.en.map(e => ({ n: e.n, t: cut2(e.d, 200), s: stt(e.d), own: nr.includes(' ' + norm(e.n) + ' ') })) })) };
+    out.info = { declared: FD.hasDecl, fa: faL.length, faOn: faL.filter(a => on(flagsOf(a.d)) || Object.keys(defFlags(a.d)).length).length,
+      dets: dets.map(x => ({ n: x.n, ab: x.ab.length, abOn: x.ab.filter(a => on(flagsOf(a.d)) || Object.keys(defFlags(a.d)).length).length,
+        st: x.st.length, stOn: x.st.filter(s => on(flagsOf(effectOf(s.d))) || Object.keys(defFlags(effectOf(s.d))).length).length,
+        miss: [...x.ab.filter(a => !(on(flagsOf(a.d)) || Object.keys(defFlags(a.d)).length)).map(a => a.n), ...x.st.filter(s => !(on(flagsOf(effectOf(s.d))) || Object.keys(defFlags(effectOf(s.d))).length)).map(s => s.n)].slice(0, 5) })),
+      faMiss: faL.filter(a => !(on(flagsOf(a.d)) || Object.keys(defFlags(a.d)).length)).map(a => a.n).slice(0, 4) };
+    return out;
+  }
+
+  // Règles DÉFENSIVES (détachement, règle d'armée, stratagème) : facteur multiplicatif sur les dégâts reçus par unité (1 = aucun effet).
+  // FNP / invulnérable accordés, -1 pour toucher, -1 pour blesser, -1 aux dégâts — pondérés comme les bonus offensifs (règle d'armée / détachement 0.5, stratagème 0.3).
+  function defMap(units, pre, dets) {
+    const dfm = units.map(() => 1);
+    pre.forEach((d, i) => { if (!d) return;
+      const own = d.fnp ? (d.fnp - 1) / 6 : 1, mod = d.mod[0], iv0 = bestInv(mod.inv, d.invx), eff = {};
+      const facOf = o => {
+        const f = {};
+        if (o.fnp) f.fnp = Math.min(1, ((o.fnp - 1) / 6) / own);
+        if (o.inv) f.inv = Math.min(1, pFail(mod.Sv, 2, bestInv(iv0, o.inv), 0) / pFail(mod.Sv, 2, iv0, 0));
+        if (o.hitm) f.hitm = .82;
+        if (o.wndm) f.wndm = .82;
+        if (o.dr) f.dr = .75;
+        return f;
+      };
+      const add = (f, wt) => { for (const k in f) if (f[k] < 1 - 1e-6 && (!eff[k] || (1 - f[k]) * wt > (1 - eff[k].f) * eff[k].w)) eff[k] = { f: f[k], w: wt }; };
+      const okTgt = txt => { const c = tgtCond(String(txt || '').toLowerCase()); return !c.length || c.some(k => d.kw.includes(k)); };
+      (((api.db && api.db.facab) || {})[d.f] || []).forEach(a => { if (okTgt(a.d)) add(facOf(defFlags(a.d)), .5); });
+      dets.forEach(x => {
+        x.ab.forEach(a => { if (okTgt(a.d)) add(facOf(defFlags(a.d)), .5); });
+        const st = x.st.filter(s => (parseInt(s.cp) || 1) <= 2 && ownReq(s.d).every(k => d.kw.includes(k)) && okTgt(effectOf(s.d)))
+          .map(s => facOf(defFlags(effectOf(s.d)))).map(f => ({ f, g: Object.values(f).reduce((a, v) => a + (1 - v), 0) })).filter(o => o.g > 0).sort((a, b) => b.g - a.g)[0];
+        if (st) add(st.f, .3);
+      });
+      let m = 1; for (const k in eff) m *= 1 - eff[k].w * (1 - eff[k].f);
+      dfm[i] = Math.max(.45, m);
+    });
+    return dfm;
+  }
+
+  function metrics(d, pts, bf) {
     const m = d.mod[0], cr = costRow(d, pts);
     const n = Math.max(1, cr.c ? Math.round(cr.n*pts/cr.c) : cr.n);   // nb de figurines déduit de la ligne de coût la plus proche, ajusté aux points
     const totW = m.W*n;
-    const at  = totW / Math.max(pWound(9,m.T)*pFail(m.Sv,2,m.inv,d.fnp)*Math.min(3,m.W), .001);
-    const inf = totW / Math.max(pWound(5,m.T)*pFail(m.Sv,1,m.inv,d.fnp), .001);
+    const iv = bestInv(m.inv, d.invx);
+    const at  = totW / Math.max(pWound(9,m.T)*pFail(m.Sv,2,iv,d.fnp)*Math.max(1, Math.min(3,m.W) - (d.dr||0)), .001);
+    const inf = totW / Math.max(pWound(5,m.T)*pFail(m.Sv,1,iv,d.fnp), .001);
     const out = { R:{H:0,E:0,Ho:0}, M:{H:0,E:0,Ho:0} };
     for (const t of ['R','M']) {
-      d.wp.filter(w => w.t === t).map(w => { const o = {}; for (const k in BM) { const b = BM[k]; o[k] = w.a*w.h*pWound(w.s,b.T)*pFail(b.sv,w.ap,b.inv)*Math.min(w.d,b.W)*w.f*(k==='Ho'&&w.bl?1.3:1); } return o; })
+      d.wp.filter(w => w.t === t).map(w => { const o = {}; for (const k in BM) o[k] = wOut(w, k, bf); return o; })
         .sort((x,y) => y.E-x.E).slice(0, n === 1 ? 3 : 99)      // figurine seule : ses 3 meilleures armes (les autres sont des options alternatives)
         .forEach((o,i) => { const k = n === 1 || i > 0 ? 1 : n; for (const b in o) out[t][b] += o[b]*k; });
     }
+    if (d._mw) for (const b in out.R) out.R[b] += d._mw;
     return { n, W:m.W, T:m.T, sv:m.Sv, inv:m.inv, OC:m.OC, M:m.M, at, inf, out };
   }
 
@@ -1236,16 +1867,19 @@ const WAHA = (() => {
     return { roles:r, main };
   }
 
-  function analyze(units, totalPts) {
+  function analyze(units, totalPts, raw) {
     if (!IDX) return null;
+    const pre = units.map(u => { const d = find(u.name, u.pts); return d && d.mod.length ? ensureDef(d) : null; });
+    const bufs = buffMap(units, pre, raw), dfm = defMap(units, pre, bufs.dets || []);
     const fp = {}, ids = {}, miss = [], list = [];
     const t = { kH:0, kE:0, kHo:0, at:0, inf:0, oc:0, fast:0, mv:0 };
     let cov = 0, nm = 0;
-    units.forEach(u => {
-      u.dx = null; u.dxRoles = null; u.dxMain = null; u.dxTxt = '';
-      const d = find(u.name, u.pts);
-      if (!d || !d.mod.length) { miss.push(u.name); return; }
-      const x = metrics(d, u.pts), rr = rolesOf(d, x, u.pts);
+    units.forEach((u, ui) => {
+      u.dx = null; u.dxRoles = null; u.dxMain = null; u.dxTxt = ''; u.dxBuf = '';
+      const d = pre[ui];
+      if (!d) { miss.push(u.name); return; }
+      const bf = bufs[ui], x = metrics(d, u.pts, bf), rr = rolesOf(d, x, u.pts);
+      u.dxBuf = bf ? bf.txt : ''; u.dxN = x.n; u.dxBf = bf; u.dxDef = dfm[ui];
       const kH = (x.out.R.H+x.out.M.H)*BMP.H, kE = (x.out.R.E+x.out.M.E)*BMP.E, kHo = (x.out.R.Ho+x.out.M.Ho)*BMP.Ho;
       u.dx = d; u.dxRoles = rr.roles; u.dxMain = rr.main; nm++; cov += u.pts; ids[d.id] = 1; fp[d.f] = (fp[d.f]||0) + u.pts; list.push({ u, d });
       t.kH += kH; t.kE += kE; t.kHo += kHo; t.at += x.at; t.inf += x.inf; t.oc += x.OC*x.n; t.mv += x.M*u.pts; if (rr.roles.includes('fast')) t.fast += u.pts;
@@ -1272,7 +1906,8 @@ const WAHA = (() => {
     let txt = `Données Wahapedia (${info(api.db)}) : ${nm}/${units.length} unités reconnues, ${pc}% des points. Contrôle : ${Math.round(oc)} OC par 1000 pts.`;
     if (cov/totalPts < CAL.covMin) txt += ' Couverture insuffisante : scores non fusionnés avec les données.';
     if (miss.length) txt += ` Non reconnues : ${miss.slice(0,5).join(', ')}.`;
-    return { cov: cov/totalPts, nm, nTot:units.length, miss, vulns, s, txt, k:kk, faction: top && top[1]/cov >= .5 ? top[0] : null };
+    const nDef = list.filter(z => z.u.dxDef < .999).length, nFnp = list.filter(z => z.d.fnp).length;
+    return { cov: cov/totalPts, nm, nTot:units.length, miss, vulns, s, txt, k:kk, faction: top && top[1]/cov >= .5 ? top[0] : null, rinfo: bufs.info, led: bufs.led, nDef, nFnp, nMw: list.filter(z => z.d._mw > 0).length };
   }
 
   function recat(units) {
@@ -1293,7 +1928,7 @@ const WAHA = (() => {
     o.onsuccess = () => { const tx = o.result.transaction('kv', mode), r = fn(tx.objectStore('kv')); tx.oncomplete = () => res(r.result); tx.onerror = () => rej(tx.error); };
     o.onerror = () => rej(o.error);
   });
-  const api = { db:null, CAL, avg, pHit, pFail, num, strip, idb, BMP, parseCSV, build, setDB, find, analyze, recat, pickFaction, info, norm,
+  const api = { db:null, CAL, avg, pHit, pFail, num, strip, idb, BMP, parseCSV, build, setDB, find, analyze, recat, pickFaction, info, norm, volley, kindOf, findDets, flagsOf, defFlags, effectOf,
     save: db => idb('readwrite', s => s.put(db, 'waha')), load: () => idb('readonly', s => s.get('waha')), clear: () => idb('readwrite', s => s.delete('waha')) };
   return api;
 })();
@@ -1325,28 +1960,11 @@ const RULES = (() => {
     if (!db) { out.notes.push('Importez les CSV Wahapedia (Detachments, Stratagems, Detachment_abilities, Enhancements) pour analyser les stratagèmes des détachements.'); return out; }
     if (!(db.det||[]).length) { out.notes.push('Import sans tables de détachements : ajoutez Detachments.csv, Stratagems.csv, Detachment_abilities.csv et Enhancements.csv.'); return out; }
     const nr = ' '+nrm(raw)+' ';
-    // Détachement(s) DÉCLARÉ(S) : lecture souple de l'en-tête de la liste.
-    // Gère « Detachment : X », « A, B, and C (3 Detachment Points) », un nom seul sur une ligne.
-    const _ln = String(raw||'').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-    const _hdr = _ln.slice(0, 14);
-    const _byName = {}; db.det.forEach(d => { (_byName[d.nl] = _byName[d.nl] || []).push(d); });
-    const _seg = l => l.replace(/^(?:detachments?|détachements?)\s*[:\-–]\s*/i, '').replace(/\(.*?\)/g, ' ')
-      .split(/\s*,\s*(?:and\s+|et\s+)?|\s+(?:and|et)\s+|\s*&\s*|\s*\+\s*/i).map(x => x.trim()).filter(Boolean);
-    let found = [], declaredMiss = [], hasDecl = false;
-    _hdr.forEach(l => {
-      const dp = /detachment points?|points? de d[ée]tachement/i.test(l) || /^(?:detachments?|détachements?)\s*[:\-–]/i.test(l);
-      if (dp) hasDecl = true;
-      const segs = _seg(l), hits = [];
-      segs.forEach(sg => { const k = nrm(sg); if (_byName[k]) hits.push(..._byName[k]); else if (dp && k) declaredMiss.push(sg); });
-      if (hits.length) { hasDecl = true; found.push(...hits); }
-    });
-    const _declFound = found.length > 0;
-    if (declaredMiss.length) out.notes.push('Détachement(s) déclaré(s) mais absent(s) des CSV Wahapedia importés : ' + declaredMiss.join(', ') + ' — réimportez des CSV à jour.');
-    if (!_declFound && hasDecl) return out;
-    if (!_declFound) found = db.det.filter(d => d.nl.length >= 5 && nr.includes(' '+d.nl+' '));
-    const fac = dx && dx.faction;
-    if (!_declFound && fac && found.some(d => d.f === fac)) found = found.filter(d => d.f === fac);
-    found = found.filter((d,i,a) => a.findIndex(e => e.nl === d.nl && e.f === d.f) === i).slice(0,3);
+    // Détachement(s) : lecture partagée avec le moteur de duel (WAHA.findDets) pour que l'affichage et le calcul portent sur les mêmes détachements.
+    const FD = WAHA.findDets(raw, dx && dx.faction);
+    if (FD.declaredMiss.length) out.notes.push('Détachement(s) déclaré(s) mais absent(s) des CSV Wahapedia importés : ' + FD.declaredMiss.join(', ') + ' — réimportez des CSV à jour.');
+    if (!FD.declFound && FD.hasDecl) return out;
+    let found = FD.found;
     if (!found.length) { out.notes.push('Aucun détachement reconnu dans la liste : le nom du détachement doit y figurer (ex. « Detachment : … »).'); return out; }
     if (found.length > 1) out.notes.push(`${found.length} détachements détectés : les stratagèmes de chacun sont analysés séparément.`);
     const fit = fitOf(cats, units), mp = units.filter(u => u.dx).reduce((a,u) => a+u.pts, 0), covOK = !!(dx && dx.cov >= WAHA.CAL.covMin && mp);
@@ -1716,9 +2334,15 @@ const CLOUDDATA = {
 function warRoomApp() {
   return {
     gameSystem: '40k',
+    mode: 'analyse',
+    duelA: '', duelB: '', duelRes: null, duelLoading: false, duelError: '', duelStatus: '', duelUseAI: true, duelStep: 0, duelElapsed: 0, duelTimer: null,
+    duelSteps: ['Lecture et analyse des deux listes', 'Croisement avec les fiches, détachements et règles', 'Simulation des volées de tir et de mêlée', "Consultation de l'IA", 'Mise en forme du verdict'],
+    duelStepsActive() { return this.duelSteps.filter((s, i) => i !== 3 || (this.duelUseAI && this.pollKey)); },
+    duelAxes: [{k:'face',label:'Létalité face à la liste adverse (cibles réellement présentées)'},{k:'letal',label:'Létalité générale'},{k:'resist',label:'Résistance'},{k:'mobil',label:'Mobilité & scoring / contrôle'},{k:'syner',label:'Synergie (personnages, règles, détachement)'}],
+    pollKey: '', pollModel: 'openai', pollUrl: 'https://gen.pollinations.ai/v1/chat/completions', pollStatus: '',
     forcedFaction: '',
     forcedChapter: '',
-    newCanAnalyze: true, newCanEdit: true, newCanDelete: true, selfUnsub: null,
+    newCanAnalyze: true, newCanEdit: true, newCanDelete: true, newCanDuel: false, selfUnsub: null,
     currentHistoryId: null,
     refreshing: false, refreshStatus: '',
     syncState: 'checking', syncAt: '', syncBusy: false, syncTimer: null,
@@ -1765,6 +2389,8 @@ function warRoomApp() {
     // Admin : toujours autorisé. Autres comptes : autorisés sauf si canAnalyze === false sur leur fiche
     canAnalyze() { return !!this.user && (this.user.role === 'admin' || this.user.canAnalyze !== false); },
     // Modifier (renommer, ranger/déplacer, renommer un dossier) et supprimer (analyses, dossiers) : admin toujours, autres comptes sauf si false sur leur fiche
+    // Duel : admin toujours ; autres comptes UNIQUEMENT si canDuel === true sur leur fiche (accès à activer dans la gestion utilisateur)
+    canDuel() { return !!this.user && (this.user.role === 'admin' || this.user.canDuel === true); },
     canEdit() { return !!this.user && (this.user.role === 'admin' || this.user.canEdit !== false); },
     canDelete() { return !!this.user && (this.user.role === 'admin' || this.user.canDelete !== false); },
     // Suit en direct la fiche du compte connecté (rôle / autorisation modifiés par un admin, ou compte supprimé)
@@ -1778,7 +2404,7 @@ function warRoomApp() {
         if (!doc.exists) { this.logout(); return; }
         const d = doc.data();
         if (d.active === false) { this.logout(); this.loginError = 'Compte désactivé.'; return; }
-        this.user = { username: name, role: d.role || 'user', canAnalyze: d.canAnalyze !== false, canEdit: d.canEdit !== false, canDelete: d.canDelete !== false };
+        this.user = { username: name, role: d.role || 'user', canAnalyze: d.canAnalyze !== false, canEdit: d.canEdit !== false, canDelete: d.canDelete !== false, canDuel: d.canDuel === true };
         localStorage.setItem('warroom_user', JSON.stringify(this.user));
         if (this.isAdmin()) this.watchUsers();
       }, err => console.warn('Firestore compte :', err));
@@ -1795,7 +2421,7 @@ function warRoomApp() {
           const doc = await col.doc(name).get();
           if (!name || !doc.exists || doc.data().passwordHash !== await sha256(name + ':' + this.loginPwd)) throw new Error('Identifiants incorrects.');
           if (doc.data().active === false) throw new Error('Compte désactivé. Contactez un administrateur.');
-          this.user = { username: name, role: doc.data().role || 'user', canAnalyze: doc.data().canAnalyze !== false, canEdit: doc.data().canEdit !== false, canDelete: doc.data().canDelete !== false };
+          this.user = { username: name, role: doc.data().role || 'user', canAnalyze: doc.data().canAnalyze !== false, canEdit: doc.data().canEdit !== false, canDelete: doc.data().canDelete !== false, canDuel: doc.data().canDuel === true };
         }
         localStorage.setItem('warroom_user', JSON.stringify(this.user));
         this.loginPwd = ''; this.loginUser = '';
@@ -1819,7 +2445,7 @@ function warRoomApp() {
         const col = USERS.col(); if (!col) { this.user = u; return; }
         const doc = await col.doc(u.username).get();
         if (!doc.exists || doc.data().active === false) { localStorage.removeItem('warroom_user'); return; } // compte supprimé ou désactivé
-        this.user = { username: u.username, role: doc.data().role || 'user', canAnalyze: doc.data().canAnalyze !== false, canEdit: doc.data().canEdit !== false, canDelete: doc.data().canDelete !== false };
+        this.user = { username: u.username, role: doc.data().role || 'user', canAnalyze: doc.data().canAnalyze !== false, canEdit: doc.data().canEdit !== false, canDelete: doc.data().canDelete !== false, canDuel: doc.data().canDuel === true };
         localStorage.setItem('warroom_user', JSON.stringify(this.user));
         if (this.isAdmin()) this.watchUsers();
         this.watchSelf();
@@ -1829,7 +2455,7 @@ function warRoomApp() {
     watchUsers() {
       const col = USERS.col(); if (!col || this.usersUnsub) return;
       this.usersUnsub = col.onSnapshot(snap => {
-        this.users = snap.docs.map(d => ({ username: d.id, role: d.data().role || 'user', canAnalyze: d.data().canAnalyze !== false, canEdit: d.data().canEdit !== false, canDelete: d.data().canDelete !== false, active: d.data().active !== false, lastLoginAt: d.data().lastLoginAt || '' })).sort((a, b) => a.username.localeCompare(b.username));
+        this.users = snap.docs.map(d => ({ username: d.id, role: d.data().role || 'user', canAnalyze: d.data().canAnalyze !== false, canEdit: d.data().canEdit !== false, canDelete: d.data().canDelete !== false, canDuel: d.data().canDuel === true, active: d.data().active !== false, lastLoginAt: d.data().lastLoginAt || '' })).sort((a, b) => a.username.localeCompare(b.username));
       }, err => { console.warn(err); this.usersStatus = '✗ Lecture des comptes impossible (règles Firestore ?)'; });
     },
     async createUser() {
@@ -1840,8 +2466,8 @@ function warRoomApp() {
       try {
         const col = USERS.col();
         if ((await col.doc(name).get()).exists) { this.usersStatus = '✗ Ce compte existe déjà'; return; }
-        await col.doc(name).set({ role: this.newRole, canAnalyze: !!this.newCanAnalyze, canEdit: !!this.newCanEdit, canDelete: !!this.newCanDelete, active: true, passwordHash: await sha256(name + ':' + this.newPwd), createdAt: new Date().toISOString() });
-        this.usersStatus = '✓ Compte « ' + name + ' » créé'; this.newUser = ''; this.newPwd = ''; this.newRole = 'user'; this.newCanAnalyze = true; this.newCanEdit = true; this.newCanDelete = true;
+        await col.doc(name).set({ role: this.newRole, canAnalyze: !!this.newCanAnalyze, canEdit: !!this.newCanEdit, canDelete: !!this.newCanDelete, canDuel: !!this.newCanDuel, active: true, passwordHash: await sha256(name + ':' + this.newPwd), createdAt: new Date().toISOString() });
+        this.usersStatus = '✓ Compte « ' + name + ' » créé'; this.newUser = ''; this.newPwd = ''; this.newRole = 'user'; this.newCanAnalyze = true; this.newCanEdit = true; this.newCanDelete = true; this.newCanDuel = false;
       } catch (e) { this.usersStatus = '✗ ' + (e.message || e); }
     },
     async resetUserPwd(u) {
@@ -1866,6 +2492,10 @@ function warRoomApp() {
     },
     async toggleCanEdit(u) {
       try { await USERS.col().doc(u.username).update({ canEdit: u.canEdit === false }); }
+      catch (e) { this.usersStatus = '✗ ' + (e.message || e); }
+    },
+    async toggleCanDuel(u) {
+      try { await USERS.col().doc(u.username).update({ canDuel: u.canDuel !== true }); }
       catch (e) { this.usersStatus = '✗ ' + (e.message || e); }
     },
     async toggleCanDelete(u) {
@@ -1946,7 +2576,13 @@ function warRoomApp() {
       this.aosPackRaw = localStorage.getItem('warroom_aos_pack') || '';
       AOS.load().then(db => { if (db && db.ws) { AOS.setDB(db); this.aStatus = '✓ ' + AOS.info(db) + ' chargés'; } }).catch(() => {});
       WAHA.load().then(db => { if (db && db.units) { WAHA.setDB(db); this.wStatus = '✓ ' + WAHA.info(db) + ' chargées'; } }).catch(() => {});
-      this.$watch('gameSystem', v => localStorage.setItem('warroom_game', v));
+      this.$watch('gameSystem', v => { localStorage.setItem('warroom_game', v); this.duelRes = null; });
+      this.mode = localStorage.getItem('warroom_mode') === 'duel' ? 'duel' : 'analyse';
+      this.$watch('mode', v => { if (v === 'duel' && this.user && !this.canDuel()) { this.mode = 'analyse'; return; } localStorage.setItem('warroom_mode', v); });
+      this.$watch('user', () => { if (this.mode === 'duel' && this.user && !this.canDuel()) this.mode = 'analyse'; });
+      this.pollKey = localStorage.getItem('warroom_poll_key') || '';
+      this.pollModel = localStorage.getItem('warroom_poll_model') || 'openai';
+      this.pollUrl = localStorage.getItem('warroom_poll_url') || 'https://gen.pollinations.ai/v1/chat/completions';
       this.restoreSession();
       this.pullCloudData();
       this.startSyncWatch();
@@ -2160,7 +2796,7 @@ function warRoomApp() {
 
         let faction = this.detectFaction(this.rawList);
         let cats = this.classifyUnits(units);
-        const dx = (this.gameSystem === '40k') ? WAHA.analyze(units, totalPts) : AOS.analyze(units, totalPts);
+        const dx = (this.gameSystem === '40k') ? WAHA.analyze(units, totalPts, this.rawList) : AOS.analyze(units, totalPts);
         const dxOn = !!(dx && dx.cov >= WAHA.CAL.covMin);
         if (dxOn) {
           cats = WAHA.recat(units);
@@ -2438,8 +3074,335 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
 
     resetAll() { this.report = null; this.rawList = ''; this.error = ''; this.forcedFaction = ''; this.forcedChapter = ''; this.currentHistoryId = null; },
 
+    // =====================================================================
+    // MODE DUEL — matchup entre deux listes (MU de -3 à +3, du point de vue de la liste A)
+    // Moteur local (données importées + heuristiques) + avis optionnel d'une IA via Pollinations
+    // =====================================================================
+    muFmt(v) {
+      if (v === null || v === undefined || isNaN(v)) return '—';
+      const n = Math.round(v * 2) / 2;
+      return n === 0 ? '0' : (n > 0 ? '+' : '−') + Math.abs(n);
+    },
+    muColor(v) { return v >= 0.5 ? 'text-neon-green' : (v <= -0.5 ? 'text-neon-red' : 'text-neon-amber'); },
+    muVerdict(v) {
+      if (v >= 2.5) return 'Très favorable à la liste A';
+      if (v >= 1.5) return 'Favorable à la liste A';
+      if (v >= 0.5) return 'Légèrement favorable à la liste A';
+      if (v > -0.5) return 'Matchup équilibré';
+      if (v > -1.5) return 'Légèrement défavorable à la liste A';
+      if (v > -2.5) return 'Défavorable à la liste A';
+      return 'Très défavorable à la liste A';
+    },
+    resetDuel() { this.duelA = ''; this.duelB = ''; this.duelRes = null; this.duelError = ''; },
+
+    // ---------- Réglages IA ----------
+    savePoll() {
+      const url = (this.pollUrl || '').trim();
+      if (url && !/^https:\/\//i.test(url)) { this.pollStatus = '✗ L\'endpoint doit commencer par https://'; return; }
+      this.pollKey = (this.pollKey || '').trim(); this.pollModel = (this.pollModel || '').trim() || 'openai';
+      this.pollUrl = url || 'https://gen.pollinations.ai/v1/chat/completions';
+      localStorage.setItem('warroom_poll_key', this.pollKey);
+      localStorage.setItem('warroom_poll_model', this.pollModel);
+      localStorage.setItem('warroom_poll_url', this.pollUrl);
+      this.pollStatus = this.pollKey ? '✓ Configuration enregistrée (ce navigateur uniquement)' : '✓ Enregistré (aucune clé : IA désactivée)';
+    },
+    clearPoll() {
+      this.pollKey = ''; this.pollModel = 'openai'; this.pollUrl = 'https://gen.pollinations.ai/v1/chat/completions';
+      ['warroom_poll_key', 'warroom_poll_model', 'warroom_poll_url'].forEach(k => localStorage.removeItem(k));
+      this.pollStatus = 'Clé effacée';
+    },
+    async testPoll() {
+      this.savePoll();
+      if (!this.pollKey) { this.pollStatus = '✗ Aucune clé renseignée'; return; }
+      this.pollStatus = 'Test en cours…';
+      try { const t = await this.callPoll([{ role: 'user', content: 'Réponds uniquement par le mot OK.' }], 20); this.pollStatus = '✓ Connexion OK — réponse : ' + t.trim().slice(0, 40); }
+      catch (e) { this.pollStatus = '✗ ' + (e.message || e); }
+    },
+    async callPoll(messages, maxTokens) {
+      const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), 120000);
+      try {
+        const r = await fetch(this.pollUrl || 'https://gen.pollinations.ai/v1/chat/completions', {
+          method: 'POST', signal: ctl.signal,
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.pollKey },
+          body: JSON.stringify({ model: this.pollModel || 'openai', messages, temperature: 0.3, max_tokens: maxTokens || 2500 })
+        });
+        if (!r.ok) { let t = ''; try { t = (await r.text()).slice(0, 200); } catch (e) {} throw new Error('Pollinations HTTP ' + r.status + (t ? ' — ' + t : '')); }
+        const j = await r.json();
+        const c = j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
+        if (!c) throw new Error('Réponse IA vide');
+        return String(c);
+      } catch (e) {
+        if (e && e.name === 'AbortError') throw new Error('Délai dépassé (120 s)');
+        throw e;
+      } finally { clearTimeout(to); }
+    },
+
+    // ---------- Profil chiffré d'une liste ----------
+    profileOf(raw) {
+      const is40k = this.gameSystem === '40k';
+      const cl = (v, a, b) => Math.max(a, Math.min(b, v));
+      const { units, totalPts } = this.parseList(raw);
+      if (units.length < 2) return null;
+      let faction = this.detectFaction(raw);
+      let cats = this.classifyUnits(units);
+      const dx = is40k ? WAHA.analyze(units, totalPts, raw) : AOS.analyze(units, totalPts);
+      const dxOn = !!(dx && dx.cov >= WAHA.CAL.covMin);
+      if (dxOn) {
+        cats = WAHA.recat(units);
+        if (dx.faction) faction = WAHA.pickFaction(dx.faction, faction, FACTION_DB[this.gameSystem] || []);
+      }
+      let chapter = null;
+      if (is40k && faction && this.isSpaceMarinesName(faction.name)) {
+        chapter = this.detectChapter(raw);
+        if (chapter) faction = this.withChapter(faction, chapter);
+      }
+      const refPts = Math.max(totalPts, 750), d = c => (cats[c] / refPts) * 1000;
+      const s = {
+        letal: cl(2 + d('antichar') * 0.9 + d('antihorde') * 0.55 + d('melee') * 0.5, 1, 10),
+        resist: cl(2 + d('tough') * 1.0 + d('scoring') * 0.25, 1, 10),
+        mobil: cl(2 + d('fast') * 0.9 + d('scoring') * 0.45, 1, 10),
+        syner: cl(2.5 + d('leader') * 1.3 + d('psychic') * 0.6 + (faction ? 0.5 : 0), 1, 10)
+      };
+      // efficacité de destruction par type de cible (0-10) : heuristique, puis fusion avec les fiches importées
+      const vec = {
+        H: cl(1 + d('antichar') * 1.5, 0, 10),
+        E: cl(1 + d('melee') * 0.9 + d('antichar') * 0.3 + d('antihorde') * 0.3, 0, 10),
+        Ho: cl(1 + d('antihorde') * 1.5 + d('melee') * 0.4, 0, 10)
+      };
+      const cov = dx ? (dx.cov || 0) : 0;
+      if (dxOn) {
+        const w = dx.cov;
+        ['letal', 'resist', 'mobil', 'syner'].forEach(k => { s[k] = cl(s[k] * (1 - w) + dx.s[k] * w, 1, 10); });
+        if (dx.k) { const sat = x => 10 * x / (x + 400); vec.H = vec.H * (1 - w) + sat(dx.k.H) * w; vec.E = vec.E * (1 - w) + sat(dx.k.E) * w; vec.Ho = vec.Ho * (1 - w) + sat(dx.k.Ho) * w; }
+      }
+      const regles = RULES.analyze(this.gameSystem, raw, units, cats, dx, faction);
+      if (regles.syn !== undefined) s.syner = cl(s.syner * 0.5 + (1 + 9 * regles.syn) * 0.5, 1, 10);
+      // composition : quelle part des points constitue des cibles lourdes / d'élite / de horde
+      const mix = { H: 0, E: 0, Ho: 0 };
+      units.forEach(u => {
+        const r = u.roles || [], kw = (u.dx && u.dx.kw) || [];
+        let k;
+        // type de cible présenté à l'adversaire, d'après les PV réels par figurine (fiches) : lourd (>=6 PV / véhicule / monstre), élite (2-5 PV), horde (1 PV)
+        if (u.dx && Array.isArray(u.dx.mod) && u.dx.mod.length) {
+          // mots-clés de la fiche : véhicule / monstre = cible lourde ; 1 PV ou nuée = horde ; le reste (infanterie, personnages, motos...) = élite
+          k = (kw.includes('vehicle') || kw.includes('monster') || kw.includes('titanic')) ? 'H' : ((u.dx.mod[0].W <= 1 || kw.includes('swarm')) ? 'Ho' : 'E');
+        } else if (u.dx && typeof u.dx.hp === 'number') {
+          k = (u.dx.hp >= 10 || kw.includes('monster')) ? 'H' : (u.dx.hp <= 1 ? 'Ho' : 'E');
+        } else if (r.includes('tough') || kw.includes('vehicle') || kw.includes('monster')) k = 'H';
+        else if (r.includes('scoring') && !r.includes('melee')) k = 'Ho';
+        else k = 'E';
+        mix[k] += u.pts;
+      });
+      const tot = mix.H + mix.E + mix.Ho || 1; mix.H /= tot; mix.E /= tot; mix.Ho /= tot;
+
+      const RF = { antichar: 'antichar', antihorde: 'anti-masse', melee: 'mêlée', tough: 'résistant', fast: 'mobile', scoring: 'scoring', leader: 'personnage', psychic: is40k ? 'psychique' : 'magie' };
+      const f1 = n => Math.round(n * 10) / 10;
+      const flTxt = fl => !fl ? '' : [fl.lh && 'Lethal Hits', fl.sh && 'Sustained Hits ' + fl.sh, fl.dw && 'Devastating Wounds', fl.tl && 'Twin-linked', fl.tor && 'Torrent',
+        fl.an && Object.entries(fl.an).map(([k, v]) => 'Anti-' + k + ' ' + v + '+').join(' '), fl.rf && 'Rapid Fire ' + fl.rf, fl.mel && 'Melta ' + fl.mel].filter(Boolean).join(', ');
+      const wpn = u => {
+        const w = u.dx && Array.isArray(u.dx.wp) ? [...u.dx.wp].sort((a, b) => (b.a * (b.d || 1)) - (a.a * (a.d || 1))).slice(0, 3) : [];
+        return w.map(x => is40k ? `${x.n} (${x.t === 'M' ? 'mêlée' : 'tir'} A${f1(x.a)} F${x.s} PA${x.ap} D${f1(x.d)}${flTxt(x.fl) ? ' ; ' + flTxt(x.fl) : ''})` : `${x.n} (A${f1(x.a)} rend ${x.rnd} D${f1(x.d)})`);
+      };
+      const sortedU = [...units].sort((a, b) => b.pts - a.pts);
+      const cu = sortedU.map((u, i) => ({
+        name: u.name, pts: u.pts, roles: (u.roles || []).slice(), rolesFr: (u.roles || []).map(r => RF[r]).filter(Boolean),
+        fiche: u.dxTxt || '', abil: (u.dx && Array.isArray(u.dx.abx) ? u.dx.abx.slice(0, 5).map(a => a.n) : []), armes: i < 12 ? wpn(u) : [],
+        kw: (u.dx && u.dx.kw) || [],
+        ab2: u.dx && Array.isArray(u.dx.abx) ? u.dx.abx.slice(0, 8).map(a => { const t = String(a.d || ''); return { n: a.n, t: t.length > 200 ? t.slice(0, 199) + '…' : t, s: Object.keys(WAHA.flagsOf(t)).filter(k => k !== 'cnd').length ? 'offensif' : (Object.keys(WAHA.defFlags(t)).length ? 'défensif' : 'qualitatif') }; }) : [],
+        bonus: u.dxBuf || '',
+        dw: !!(u.dx && Array.isArray(u.dx.wp) && u.dx.wp.some(w => w.fl && w.fl.dw)) || /Devastating/.test(u.dxBuf || ''),
+        lh: !!(u.dx && Array.isArray(u.dx.wp) && u.dx.wp.some(w => w.fl && (w.fl.lh || w.fl.sh))) || /Lethal|Sustained/.test(u.dxBuf || ''),
+        rr: /relance/.test(u.dxBuf || ''),
+        an: !!(u.dx && Array.isArray(u.dx.wp) && u.dx.wp.some(w => w.fl && w.fl.an))
+      }));
+      const shr = f => Math.round(cu.filter(f).reduce((a, u) => a + u.pts, 0) / totalPts * 100);
+      const offTags = [];
+      [['Devastating Wounds (blessures ignorant les sauvegardes)', u => u.dw], ['relances des touches / blessures', u => u.rr], ['Lethal Hits / Sustained Hits', u => u.lh], ['armes Anti-X', u => u.an]]
+        .forEach(([lbl, f]) => { const p = shr(f); if (p >= 10) offTags.push(`${p}% des points avec ${lbl}`); });
+      const legacy = units.some(u => u.dx && Array.isArray(u.dx.wp) && u.dx.wp.length && !u.dx.wp[0].fl);
+      const cut = (t, n) => { t = String(t || ''); return t.length > n ? t.slice(0, n - 1) + '…' : t; };
+      const detDetail = (regles.blocs || []).map(b => ({ nom: b.titre, regles: (b.sections || []).flatMap(sec => (sec.items || []).slice(0, 3).map(it => ({ nom: it.nom, texte: cut(it.texte, 160) }))) }));
+      return {
+        fac: (faction ? faction.name : 'Faction non identifiée') + (chapter ? ' · ' + chapter.name : ''),
+        facObj: faction ? { contrePhilo: faction.contrePhilo, forces: faction.forces, faiblesses: faction.faiblesses, style: faction.style } : null,
+        chapitre: chapter ? chapter.name : null,
+        pts: totalPts, n: units.length, s, vec, mix, cov, dxOn, units: cu, offTags, legacy,
+        vu: is40k && dxOn ? units.filter(u => u.dx && Array.isArray(u.dx.mod) && u.dx.mod.length && Array.isArray(u.dx.wp)).map(u => ({ name: u.name, pts: u.pts, d: u.dx, n: u.dxN || 1, bf: u.dxBf, dfm: u.dxDef || 1 })) : [],
+        rtxt: (() => {
+          const ri = dx && dx.rinfo; if (!is40k || !dxOn || !ri) return '';
+          const dl = (ri.dets || []).map(x => `${x.n} : ${x.abOn}/${x.ab} aptitudes et ${x.stOn}/${x.st} stratagèmes exploitables` + (x.miss && x.miss.length ? ` (non lus : ${x.miss.join(', ')})` : ''));
+          return 'Règles lues : ' + (dl.length ? dl.join(' ; ') : 'aucun détachement reconnu') + ` · règle(s) d'armée exploitables : ${ri.faOn}/${ri.fa}` +
+            (ri.faMiss && ri.faMiss.length ? ` (non lues : ${ri.faMiss.join(', ')})` : '') + ` · FNP lue sur ${dx.nFnp} unité(s) · blessures mortelles lues sur ${dx.nMw} unité(s) · règles défensives appliquées à ${dx.nDef} unité(s).`;
+        })(),
+        det: (regles.blocs || []).map(b => b.titre), detDetail,
+        led: dx && dx.led ? dx.led : null,
+        rb: dx && dx.led ? null : (regles.blocs || []).map(b => ({ n: b.titre, items: (b.sections || []).flatMap(sec => sec.items || []).map(it => ({ n: it.nom, t: cut(it.texte, 240), s: it.tag || '' })) })),
+        vulns: dx && dx.vulns ? dx.vulns : [],
+        dxInfo: dx ? dx.txt : 'Aucune donnée importée : scores établis par mots-clés (moins précis).'
+      };
+    },
+
+    // ---------- Calcul du MU (moteur local) ----------
+    duelCompute(A, B) {
+      const K = ['H', 'E', 'Ho'];
+      const KN = { H: 'cibles lourdes (antichar)', E: 'unités d\'élite', Ho: 'hordes (anti-masse)' };
+      const cl = (v, a, b) => Math.max(a, Math.min(b, v));
+      const pct = v => Math.round(v * 100);
+      const off = (X, Y) => K.reduce((t, k) => t + Y.mix[k] * X.vec[k], 0);
+      const hole = (X, Y) => K.reduce((t, k) => t + Y.mix[k] * Math.max(0, 4 - X.vec[k]) / 4, 0);
+      const bon = (X, Y) => K.reduce((t, k) => t + Y.mix[k] * Math.max(0, X.vec[k] - 6) / 4, 0);
+      const holesOf = (X, Y) => K.filter(k => Y.mix[k] >= 0.2 && X.vec[k] < 4.5).map(k => `${KN[k]} : ${pct(Y.mix[k])}% de la liste adverse pour seulement ${X.vec[k].toFixed(1)}/10 d'efficacité`);
+      const mixTxt = P => `${pct(P.mix.H)}% de cibles lourdes, ${pct(P.mix.E)}% d'élites, ${pct(P.mix.Ho)}% de hordes`;
+
+      let offA = off(A, B), offB = off(B, A), exch, volley = null;
+      if (A.vu.length && B.vu.length) {
+        // simulation d'une volée complète de chaque liste sur les unités RÉELLES de l'autre (fiches, mots-clés d'armes, bonus de règles)
+        const vA = WAHA.volley(A.vu, B.vu), vB = WAHA.volley(B.vu, A.vu);
+        const fA = Math.min(1, vA.frac / Math.max(0.4, A.cov)), fB = Math.min(1, vB.frac / Math.max(0.4, B.cov));
+        exch = cl(Math.log((fA + 0.02) / (fB + 0.02)) * 2.2, -2, 2);
+        const f10 = f => 10 * f / (f + 0.25);
+        offA = f10(fA); offB = f10(fB);
+        // capacité réelle contre chaque type de cible adverse : toute la liste tire uniquement sur les unités de ce type (profils réels, FNP / invulnérables / règles lues)
+        const cap = (att, def) => { const o = {}; K.forEach(k => { const sub = def.filter(v => WAHA.kindOf(v) === k); o[k] = sub.length ? Math.min(1, WAHA.volley(att, sub).frac) : null; }); return o; };
+        volley = { fA, fB, kA: vA.kill, kB: vB.kill, detA: vA.det.slice(0, 6), detB: vB.det.slice(0, 6), tA: cap(A.vu, B.vu), tB: cap(B.vu, A.vu) };
+        const nb = L => L.map(v => Object.assign({}, v, { bf: null })), nd = L => L.map(v => Object.assign({}, v, { dfm: 1 }));
+        const kAp = WAHA.volley(nb(A.vu), nd(B.vu)).kill, kBp = WAHA.volley(nb(B.vu), nd(A.vu)).kill, kAo = WAHA.volley(A.vu, nd(B.vu)).kill, kBo = WAHA.volley(B.vu, nd(A.vu)).kill;
+        volley.imp = { A: { off: kAo - kAp, def: kBo - vB.kill }, B: { off: kBo - kBp, def: kAo - vA.kill } };
+      } else {
+        const kA = (offA + 1) / (B.s.resist + 1), kB = (offB + 1) / (A.s.resist + 1);
+        exch = cl(Math.log(kA / kB) * 2.2, -1.5, 1.5);
+      }
+      const miss = cl((A.s.mobil - B.s.mobil) / 4, -1, 1);
+      const syn = cl((A.s.syner - B.s.syner) / 6, -0.5, 0.5);
+      const cov = ((hole(B, A) - hole(A, B)) * 0.8 + (bon(A, B) - bon(B, A)) * 0.5) * (volley ? 0.3 : 1);   // déjà inclus dans la simulation de volées
+      const raw = exch + miss + syn + cov;
+      const eng = cl(Math.round(raw * 1.3 * 2) / 2, -3, 3);
+      const mk = (nom, c, texte) => { const p = c * 1.3; return { nom, c: p, pour: p > 0.15 ? 'A' : (p < -0.15 ? 'B' : 'neutre'), pts: '≈ ' + Math.abs(p).toFixed(1) + ' pt', texte }; };
+
+      const factors = [];
+      const dtxt = L => L.slice(0, 3).map(x => `${x.unit} (≈ ${Math.round(x.kill)} pts de dégâts${x.targets.length ? ', surtout ' + x.targets.join(' / ') : ''})`).join(' ; ');
+      if (volley) factors.push(mk('Échange de dégâts (simulation d\'une volée)', exch,
+        `Chaque liste tire puis charge sur les unités réelles de l'autre (cibles optimales, sauvegardes / invulnérables / FNP, mots-clés d'armes, relances et règles de détachement lues dans les données). ` +
+        `A détruit ≈ ${Math.round(volley.fA * 100)}% de la liste B par volée (≈ ${Math.round(volley.kA)} pts) ; B détruit ≈ ${Math.round(volley.fB * 100)}% de la liste A (≈ ${Math.round(volley.kB)} pts). ` +
+        `Principaux tueurs de A : ${dtxt(volley.detA) || '—'}. Principaux tueurs de B : ${dtxt(volley.detB) || '—'}.` +
+        (A.offTags.length ? ` Atouts offensifs de A : ${A.offTags.join(', ')}.` : '') + (B.offTags.length ? ` Atouts offensifs de B : ${B.offTags.join(', ')}.` : '')));
+      else factors.push(mk('Échange de dégâts', exch,
+        `Face à la composition de B (${mixTxt(B)}), la liste A atteint ${offA.toFixed(1)}/10 d'efficacité de destruction ; B atteint ${offB.toFixed(1)}/10 face à A (${mixTxt(A)}).` +
+        (A.offTags.length ? ` Atouts offensifs de A : ${A.offTags.join(', ')}.` : '') + (B.offTags.length ? ` Atouts offensifs de B : ${B.offTags.join(', ')}.` : '') + ` Compte tenu de la durabilité (A ${A.s.resist.toFixed(1)}/10, B ${B.s.resist.toFixed(1)}/10), ` +
+        (exch > 0.15 ? 'A détruit B plus vite qu\'elle n\'est elle-même détruite.' : exch < -0.15 ? 'B détruit A plus vite qu\'elle n\'est elle-même détruite.' : 'les deux listes s\'usent à un rythme comparable.')));
+      factors.push(mk('Mobilité & contrôle des objectifs', miss,
+        `Mobilité / scoring : A ${A.s.mobil.toFixed(1)}/10 contre B ${B.s.mobil.toFixed(1)}/10. ` +
+        (miss > 0.15 ? 'A impose plus facilement le tempo et peut contester les objectifs éloignés.' : miss < -0.15 ? 'B prend l\'initiative sur la mission et force A à courir derrière.' : 'Pas d\'écart net sur le jeu de mission.')));
+      factors.push(mk('Synergies & règles', syn,
+        `Synergie : A ${A.s.syner.toFixed(1)}/10, B ${B.s.syner.toFixed(1)}/10 (personnages, escortes compatibles, adéquation des règles/stratagèmes de détachement avec la composition).` +
+        (A.det.length ? ` Détachement(s) A : ${A.det.join(', ')}.` : '') + (B.det.length ? ` Détachement(s) B : ${B.det.join(', ')}.` : '')));
+      const hA = holesOf(A, B), hB = holesOf(B, A);
+      factors.push(mk('Couverture des menaces', cov,
+        (hA.length ? `Lacunes de A face à B — ${hA.join(' ; ')}. ` : 'A n\'a pas de lacune marquée face à B. ') +
+        (hB.length ? `Lacunes de B face à A — ${hB.join(' ; ')}.` : 'B n\'a pas de lacune marquée face à A.')));
+
+      if (volley && volley.imp) { const I = volley.imp, r0 = x => Math.round(x);
+        factors.push(mk('Poids des règles (armée, détachement, améliorations, aptitudes)', 0,
+          `Mesuré par simulation avec / sans règles. Liste A : ses règles ajoutent ≈ ${r0(I.A.off)} pts détruits par volée et lui épargnent ≈ ${r0(I.A.def)} pts de pertes. Liste B : ≈ ${r0(I.B.off)} pts détruits en plus et ≈ ${r0(I.B.def)} pts de pertes évitées. Ces effets sont déjà inclus dans l'échange de dégâts ; le détail des règles lues figure dans le journal ci-dessous.`)); }
+      const top = [...factors].sort((a, b) => Math.abs(b.c) - Math.abs(a.c))[0];
+      const verdict = this.muVerdict(eng);
+      const resume = `${verdict} (MU ${this.muFmt(eng)} selon le moteur local). ` +
+        (Math.abs(top.c) > 0.15 ? `Facteur déterminant : « ${top.nom} » en faveur de ${top.pour === 'A' ? 'la liste A' : 'la liste B'}. ` : 'Aucun facteur ne domine nettement : la partie se jouera sur les choix de placement et de ciblage. ') +
+        `Estimation fondée sur ${A.dxOn ? 'les fiches importées' : 'des mots-clés'} (liste A) et ${B.dxOn ? 'les fiches importées' : 'des mots-clés'} (liste B).`;
+
+      const keyFor = (X, Y) => {
+        const dom = K.slice().sort((a, b) => Y.mix[b] - Y.mix[a])[0];
+        const need = { H: 'antichar', E: 'melee', Ho: 'antihorde' }[dom];
+        let ats = X.units.filter(u => u.roles.includes(need)).slice(0, 3).map(u => `${u.name} (${u.pts} pts) — ${u.rolesFr.join(', ') || need}, utile contre ${KN[dom]}`);
+        if (!ats.length) ats = X.units.slice(0, 2).map(u => `${u.name} (${u.pts} pts) — pièce maîtresse, aucun outil dédié contre ${KN[dom]} identifié`);
+        const tg = Y.units.slice(0, 3).map(u => `${u.name} (${u.pts} pts)${u.rolesFr.length ? ' — ' + u.rolesFr.join(', ') : ''}`);
+        const ld = Y.units.find(u => u.roles.includes('leader') && !tg.some(t => t.startsWith(u.name)));
+        if (ld) tg.push(`${ld.name} (${ld.pts} pts) — personnage à retirer pour couper les synergies`);
+        const rk = holesOf(X, Y).map(h => 'Lacune : ' + h);
+        if (X.units[0] && X.units[0].pts / X.pts > 0.25) rk.push(`Forte dépendance à ${X.units[0].name} (${Math.round(X.units[0].pts / X.pts * 100)}% du budget)`);
+        return { atouts: ats, cibles: tg, risques: rk, conseil: Y.facObj ? Y.facObj.contrePhilo : 'Exploiter la lacune principale de la liste adverse en refusant son point fort.' };
+      };
+
+      const notes = [];
+      if (!A.dxOn) notes.push(`Liste A : couverture des fiches importées insuffisante (${Math.round(A.cov * 100)}%) — scores basés surtout sur des mots-clés.`);
+      if (!B.dxOn) notes.push(`Liste B : couverture des fiches importées insuffisante (${Math.round(B.cov * 100)}%) — scores basés surtout sur des mots-clés.`);
+      if (A.legacy || B.legacy) notes.push("Les fiches importées datent d'une ancienne version du moteur : réimportez les CSV Wahapedia (Réglages) pour que les mots-clés d'armes (Devastating Wounds, Lethal Hits, Anti-X, jumelé…) soient pris en compte.");
+      if (A.rtxt) notes.push('Liste A — ' + A.rtxt);
+      if (B.rtxt) notes.push('Liste B — ' + B.rtxt);
+      const strip = (P, o, fk) => ({ fac: P.fac, pts: P.pts, n: P.n, s: Object.assign({}, P.s, { face: Math.min(10, o) }), vec: P.vec, mix: P.mix, det: P.det, dxInfo: P.dxInfo, offTags: P.offTags, fk: fk || null, rtxt: P.rtxt || '', led: P.led, rb: P.rb, ul: P.units.map(u => ({ name: u.name, pts: u.pts, kw: u.kw, ab: u.ab2 })) });
+      return { volley, eng, final: eng, ai: null, aiRes: null, verdict, resume, factors, notes, A: strip(A, offA, volley && volley.tA), B: strip(B, offB, volley && volley.tB), cles: { A: keyFor(A, B), B: keyFor(B, A) } };
+    },
+
+    // ---------- Avis de l'IA (Pollinations) ----------
+    async duelAskAI(A, B, res) {
+      const is40k = this.gameSystem === '40k';
+      const r1 = n => Math.round(n * 10) / 10;
+      const pack = P => ({
+        faction: P.fac, points: P.pts, nb_unites: P.n,
+        scores_sur_10: { letalite: r1(P.s.letal), resistance: r1(P.s.resist), mobilite_scoring: r1(P.s.mobil), synergie: r1(P.s.syner) },
+        efficacite_destruction_sur_10: { cibles_lourdes: r1(P.vec.H), elites: r1(P.vec.E), hordes: r1(P.vec.Ho) },
+        composition_cibles_pct: { lourdes: Math.round(P.mix.H * 100), elites: Math.round(P.mix.E * 100), hordes: Math.round(P.mix.Ho * 100) },
+        detachements_regles: P.led || P.rb || P.detDetail, vulnerabilites_detectees: P.vulns,
+        source_donnees: P.dxInfo,
+        atouts_offensifs: P.offTags,
+        unites: P.units.slice(0, 25).map((u, i) => ({ nom: u.name, pts: u.pts, roles: u.rolesFr, fiche: u.fiche, aptitudes: u.abil, armes: u.armes, bonus_detectes: u.bonus, mots_cles: u.kw, aptitudes_texte: i < 12 ? u.ab2.slice(0, 4) : u.ab2.map(a => a.n) }))
+      });
+      const sys = `Tu es un analyste expert de ${is40k ? 'Warhammer 40,000 (11e édition)' : 'Age of Sigmar (4e édition)'} en jeu compétitif. On te fournit les profils chiffrés de deux listes (A et B), calculés à partir des fiches de données officielles importées, ainsi que l'estimation d'un moteur local. ` +
+        `Évalue le MU (matchup) de la liste A contre la liste B sur une échelle de -3 (B écrase A) à +3 (A écrase B), par pas de 0,5 (0 = équilibré). ` +
+        `Les règles d'armée, de détachement (aptitudes, stratagèmes, améliorations) et les aptitudes d'unités sont fournies avec un statut : « offensif » ou « défensif » = déjà chiffré par le moteur ; « qualitatif » = NON chiffré, à évaluer toi-même (déplacement, objectifs, points de commandement, interactions entre règles des deux listes). Passe en revue ces règles pour les deux listes et cite celles qui pèsent réellement sur le matchup. Appuie-toi uniquement sur les données fournies et sur des règles générales dont tu es certain ; n'invente aucun nom de règle, de stratagème, d'unité ou de profil absent des données ; si une information manque, dis-le. ` +
+        `Raisonne sur : l'échange de dégâts (outils antichar / anti-masse contre les cibles adverses), la durabilité, la mobilité et le contrôle des objectifs, les synergies de détachement, les personnages clés et le déroulé probable de la partie. ` +
+        `Réponds UNIQUEMENT par un objet JSON valide, sans texte autour ni balises, en français, de la forme : {"mu": nombre, "resume": "3 à 5 phrases", "raisons": [{"titre": "...", "impact": "A" ou "B" ou "neutre", "texte": "2 à 3 phrases"}] (4 à 6 éléments), "plan_A": "conseil de jeu en 2-3 phrases pour la liste A", "plan_B": "conseil de jeu en 2-3 phrases pour la liste B"}.`;
+      const payload = {
+        systeme: is40k ? 'Warhammer 40,000 11e édition' : 'Age of Sigmar 4e édition',
+        liste_A: pack(A), liste_B: pack(B),
+        estimation_moteur_local: { mu_pour_A: res.eng, facteurs: res.factors.map(f => ({ facteur: f.nom, avantage: f.pour, detail: f.texte })) }
+      };
+      const txt = await this.callPoll([{ role: 'system', content: sys }, { role: 'user', content: JSON.stringify(payload) }], 3000);
+      const t = txt.replace(/```json|```/gi, '').trim(), i = t.indexOf('{'), j = t.lastIndexOf('}');
+      if (i < 0 || j <= i) throw new Error('réponse IA non exploitable');
+      let o; try { o = JSON.parse(t.slice(i, j + 1)); } catch (e) { throw new Error('réponse IA illisible (JSON invalide)'); }
+      let mu = parseFloat(String(o.mu).replace(',', '.'));
+      if (isNaN(mu)) throw new Error('MU absent de la réponse IA');
+      mu = Math.max(-3, Math.min(3, Math.round(mu * 2) / 2));
+      return {
+        mu, resume: String(o.resume || ''),
+        raisons: (Array.isArray(o.raisons) ? o.raisons : []).slice(0, 8).map(r => ({ titre: String(r.titre || ''), impact: (r.impact === 'A' || r.impact === 'B') ? r.impact : 'neutre', texte: String(r.texte || '') })),
+        plan_A: String(o.plan_A || ''), plan_B: String(o.plan_B || '')
+      };
+    },
+
+    async runDuel() {
+      if (!this.canDuel()) { this.duelError = "L'accès au mode Duel n'est pas activé sur votre compte (contactez un administrateur)."; return; }
+      if (!this.canAnalyze()) { this.duelError = "Votre compte n'est pas autorisé à générer des analyses (contactez un administrateur)."; return; }
+      this.duelError = ''; this.duelRes = null;
+      if (!this.duelA.trim() || !this.duelB.trim()) { this.duelError = 'Renseignez les deux listes.'; return; }
+      this.duelLoading = true; this.duelStatus = 'Analyse des listes…';
+      await new Promise(r => setTimeout(r, 20));
+      try {
+        const A = this.profileOf(this.duelA), B = this.profileOf(this.duelB);
+        if (!A || !B) throw new Error("Impossible de détecter les unités de " + (!A ? 'la liste A' : 'la liste B') + " : vérifiez que chaque unité comporte son coût en points (ex: 'Intercessors (160 pts)').");
+        const res = this.duelCompute(A, B);
+        if (this.duelUseAI && this.pollKey) {
+          this.duelStatus = "Consultation de l'IA…";
+          try {
+            const ai = await this.duelAskAI(A, B, res);
+            res.aiRes = ai; res.ai = ai.mu;
+            res.final = Math.max(-3, Math.min(3, Math.round((res.eng + ai.mu) / 2 * 2) / 2));
+            if (Math.abs(res.eng - ai.mu) >= 1.5) res.notes.push(`Écart important entre le moteur local (${this.muFmt(res.eng)}) et l'IA (${this.muFmt(ai.mu)}) : lisez les deux argumentaires.`);
+          } catch (e) { res.notes.push("IA indisponible (" + (e.message || e) + ") — verdict du moteur local seul."); }
+        } else if (this.duelUseAI && !this.pollKey) {
+          res.notes.push("Aucune clé Pollinations configurée : verdict du moteur local seul.");
+        }
+        res.verdict = this.muVerdict(res.final);
+        this.duelRes = res;
+      } catch (e) {
+        console.error(e); this.duelError = e.message || 'Erreur lors du duel.';
+      } finally { this.duelLoading = false; this.duelStatus = ''; }
+    },
+
     // ---------- Helpers UI ----------
     arr(v) { return Array.isArray(v) ? v : []; },
+    ruleCls(st) { return st === 'offensif' ? 'text-neon-green' : (st === 'défensif' ? 'text-neon-cyan' : 'text-slate-500'); },
     scoreColor(v) { return v >= 7 ? 'text-neon-green' : (v >= 5 ? 'text-neon-amber' : 'text-neon-red'); },
     scoreBarColor(v) { return v >= 7 ? 'bg-neon-green' : (v >= 5 ? 'bg-neon-amber' : 'bg-neon-red'); },
 
