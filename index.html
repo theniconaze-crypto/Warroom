@@ -152,12 +152,30 @@
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label class="block text-xs text-neon-green mb-1 font-mono">LISTE A <span class="text-slate-500">(point de vue du MU)</span></label>
-          <textarea x-model="duelA" rows="10" placeholder="Collez la liste A (NewRecruit, app GW, ALN...) — chaque unité avec son coût en points."
+          <select x-model="duelPickA" @change="pickDuel('A')" :disabled="duelPickList().length===0"
+            class="w-full mb-2 bg-void-800 border border-void-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 focus:border-neon-green/60 disabled:opacity-50">
+            <option value="" x-text="duelPickList().length ? '📂 Choisir une liste déjà analysée…' : 'Aucune liste analysée pour ce système'"></option>
+            <template x-for="g in duelGroups()" :key="'dgA'+g.name">
+              <optgroup :label="g.name ? '📁 ' + g.name : 'Sans dossier'">
+                <template x-for="h in g.items" :key="'doA'+h.id"><option :value="h.id" x-text="duelLabel(h)"></option></template>
+              </optgroup>
+            </template>
+          </select>
+          <textarea x-model="duelA" @input="duelPickA=''" rows="10" placeholder="Collez la liste A (NewRecruit, app GW, ALN...) ou choisissez-en une déjà analysée ci-dessus."
             class="w-full bg-void-800 border border-void-700 rounded-lg px-3 py-3 text-sm font-mono text-slate-200 resize-y focus:border-neon-green/60"></textarea>
         </div>
         <div>
           <label class="block text-xs text-neon-red mb-1 font-mono">LISTE B</label>
-          <textarea x-model="duelB" rows="10" placeholder="Collez la liste B."
+          <select x-model="duelPickB" @change="pickDuel('B')" :disabled="duelPickList().length===0"
+            class="w-full mb-2 bg-void-800 border border-void-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 focus:border-neon-red/60 disabled:opacity-50">
+            <option value="" x-text="duelPickList().length ? '📂 Choisir une liste déjà analysée…' : 'Aucune liste analysée pour ce système'"></option>
+            <template x-for="g in duelGroups()" :key="'dgB'+g.name">
+              <optgroup :label="g.name ? '📁 ' + g.name : 'Sans dossier'">
+                <template x-for="h in g.items" :key="'doB'+h.id"><option :value="h.id" x-text="duelLabel(h)"></option></template>
+              </optgroup>
+            </template>
+          </select>
+          <textarea x-model="duelB" @input="duelPickB=''" rows="10" placeholder="Collez la liste B ou choisissez-en une déjà analysée ci-dessus."
             class="w-full bg-void-800 border border-void-700 rounded-lg px-3 py-3 text-sm font-mono text-slate-200 resize-y focus:border-neon-red/60"></textarea>
         </div>
       </div>
@@ -2335,7 +2353,7 @@ function warRoomApp() {
   return {
     gameSystem: '40k',
     mode: 'analyse',
-    duelA: '', duelB: '', duelRes: null, duelLoading: false, duelError: '', duelStatus: '', duelUseAI: true, duelStep: 0, duelElapsed: 0, duelTimer: null,
+    duelA: '', duelB: '', duelPickA: '', duelPickB: '', duelRes: null, duelLoading: false, duelError: '', duelStatus: '', duelUseAI: true, duelStep: 0, duelElapsed: 0, duelTimer: null,
     duelSteps: ['Lecture et analyse des deux listes', 'Croisement avec les fiches, détachements et règles', 'Simulation des volées de tir et de mêlée', "Consultation de l'IA", 'Mise en forme du verdict'],
     duelStepsActive() { return this.duelSteps.filter((s, i) => i !== 3 || (this.duelUseAI && this.pollKey)); },
     duelAxes: [{k:'face',label:'Létalité face à la liste adverse (cibles réellement présentées)'},{k:'letal',label:'Létalité générale'},{k:'resist',label:'Résistance'},{k:'mobil',label:'Mobilité & scoring / contrôle'},{k:'syner',label:'Synergie (personnages, règles, détachement)'}],
@@ -3095,7 +3113,25 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
       if (v > -2.5) return 'Défavorable à la liste A';
       return 'Très défavorable à la liste A';
     },
-    resetDuel() { this.duelA = ''; this.duelB = ''; this.duelRes = null; this.duelError = ''; },
+    resetDuel() { this.duelA = ''; this.duelB = ''; this.duelPickA = ''; this.duelPickB = ''; this.duelRes = null; this.duelError = ''; },
+    // Listes déjà analysées (historique), rangées par dossier, filtrées sur le système de jeu courant
+    duelPickList() { return this.history.filter(h => h.rawList && (!h.system || h.system === this.gameSystem)); },
+    duelGroups() {
+      const ok = new Set(this.duelPickList().map(h => h.id));
+      return this.historyGroups().map(g => ({ name: g.name, items: g.items.filter(h => ok.has(h.id)) })).filter(g => g.items.length);
+    },
+    duelLabel(h) {
+      const d = h.date ? new Date(h.date).toLocaleDateString('fr-FR') : '';
+      return (h.titre || h.faction || 'Analyse') + (h.faction && h.titre && h.titre !== h.faction ? ' · ' + h.faction : '') + (d ? ' — ' + d : '');
+    },
+    pickDuel(side) {
+      const id = side === 'A' ? this.duelPickA : this.duelPickB;
+      if (!id) return;
+      const h = this.history.find(x => x.id === id);
+      if (!h || !h.rawList) { this.duelError = 'Liste introuvable ou sans texte source.'; return; }
+      this.duelError = ''; this.duelRes = null;
+      if (side === 'A') this.duelA = h.rawList; else this.duelB = h.rawList;
+    },
 
     // ---------- Réglages IA ----------
     savePoll() {
