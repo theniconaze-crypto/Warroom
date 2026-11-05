@@ -3078,9 +3078,11 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
     // MODE DUEL — matchup entre deux listes (MU de -3 à +3, du point de vue de la liste A)
     // Moteur local (données importées + heuristiques) + avis optionnel d'une IA via Pollinations
     // =====================================================================
+    // MU en unités pleines (−3 … +3) : les demi-points sont arrondis au supérieur (en valeur absolue : 1,5 → 2 ; −1,5 → −2)
+    muRound(v) { const a = Math.round(Math.abs(v) + 1e-9); return v < 0 ? -a : a; },
     muFmt(v) {
       if (v === null || v === undefined || isNaN(v)) return '—';
-      const n = Math.round(v * 2) / 2;
+      const n = this.muRound(v);
       return n === 0 ? '0' : (n > 0 ? '+' : '−') + Math.abs(n);
     },
     muColor(v) { return v >= 0.5 ? 'text-neon-green' : (v <= -0.5 ? 'text-neon-red' : 'text-neon-amber'); },
@@ -3276,7 +3278,7 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
       const syn = cl((A.s.syner - B.s.syner) / 6, -0.5, 0.5);
       const cov = ((hole(B, A) - hole(A, B)) * 0.8 + (bon(A, B) - bon(B, A)) * 0.5) * (volley ? 0.3 : 1);   // déjà inclus dans la simulation de volées
       const raw = exch + miss + syn + cov;
-      const eng = cl(Math.round(raw * 1.3 * 2) / 2, -3, 3);
+      const eng = cl(this.muRound(raw * 1.3), -3, 3);
       const mk = (nom, c, texte) => { const p = c * 1.3; return { nom, c: p, pour: p > 0.15 ? 'A' : (p < -0.15 ? 'B' : 'neutre'), pts: '≈ ' + Math.abs(p).toFixed(1) + ' pt', texte }; };
 
       const factors = [];
@@ -3348,7 +3350,7 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
         unites: P.units.slice(0, 25).map((u, i) => ({ nom: u.name, pts: u.pts, roles: u.rolesFr, fiche: u.fiche, aptitudes: u.abil, armes: u.armes, bonus_detectes: u.bonus, mots_cles: u.kw, aptitudes_texte: i < 12 ? u.ab2.slice(0, 4) : u.ab2.map(a => a.n) }))
       });
       const sys = `Tu es un analyste expert de ${is40k ? 'Warhammer 40,000 (11e édition)' : 'Age of Sigmar (4e édition)'} en jeu compétitif. On te fournit les profils chiffrés de deux listes (A et B), calculés à partir des fiches de données officielles importées, ainsi que l'estimation d'un moteur local. ` +
-        `Évalue le MU (matchup) de la liste A contre la liste B sur une échelle de -3 (B écrase A) à +3 (A écrase B), par pas de 0,5 (0 = équilibré). ` +
+        `Évalue le MU (matchup) de la liste A contre la liste B sur une échelle de -3 (B écrase A) à +3 (A écrase B), en nombres ENTIERS uniquement : -3, -2, -1, 0, 1, 2 ou 3, sans décimale ni demi-point (0 = équilibré). ` +
         `Les règles d'armée, de détachement (aptitudes, stratagèmes, améliorations) et les aptitudes d'unités sont fournies avec un statut : « offensif » ou « défensif » = déjà chiffré par le moteur ; « qualitatif » = NON chiffré, à évaluer toi-même (déplacement, objectifs, points de commandement, interactions entre règles des deux listes). Passe en revue ces règles pour les deux listes et cite celles qui pèsent réellement sur le matchup. Appuie-toi uniquement sur les données fournies et sur des règles générales dont tu es certain ; n'invente aucun nom de règle, de stratagème, d'unité ou de profil absent des données ; si une information manque, dis-le. ` +
         `Raisonne sur : l'échange de dégâts (outils antichar / anti-masse contre les cibles adverses), la durabilité, la mobilité et le contrôle des objectifs, les synergies de détachement, les personnages clés et le déroulé probable de la partie. ` +
         `Réponds UNIQUEMENT par un objet JSON valide, sans texte autour ni balises, en français, de la forme : {"mu": nombre, "resume": "3 à 5 phrases", "raisons": [{"titre": "...", "impact": "A" ou "B" ou "neutre", "texte": "2 à 3 phrases"}] (4 à 6 éléments), "plan_A": "conseil de jeu en 2-3 phrases pour la liste A", "plan_B": "conseil de jeu en 2-3 phrases pour la liste B"}.`;
@@ -3363,7 +3365,7 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
       let o; try { o = JSON.parse(t.slice(i, j + 1)); } catch (e) { throw new Error('réponse IA illisible (JSON invalide)'); }
       let mu = parseFloat(String(o.mu).replace(',', '.'));
       if (isNaN(mu)) throw new Error('MU absent de la réponse IA');
-      mu = Math.max(-3, Math.min(3, Math.round(mu * 2) / 2));
+      mu = Math.max(-3, Math.min(3, this.muRound(mu)));
       return {
         mu, resume: String(o.resume || ''),
         raisons: (Array.isArray(o.raisons) ? o.raisons : []).slice(0, 8).map(r => ({ titre: String(r.titre || ''), impact: (r.impact === 'A' || r.impact === 'B') ? r.impact : 'neutre', texte: String(r.texte || '') })),
@@ -3387,7 +3389,7 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
           try {
             const ai = await this.duelAskAI(A, B, res);
             res.aiRes = ai; res.ai = ai.mu;
-            res.final = Math.max(-3, Math.min(3, Math.round((res.eng + ai.mu) / 2 * 2) / 2));
+            res.final = Math.max(-3, Math.min(3, this.muRound((res.eng + ai.mu) / 2)));
             if (Math.abs(res.eng - ai.mu) >= 1.5) res.notes.push(`Écart important entre le moteur local (${this.muFmt(res.eng)}) et l'IA (${this.muFmt(ai.mu)}) : lisez les deux argumentaires.`);
           } catch (e) { res.notes.push("IA indisponible (" + (e.message || e) + ") — verdict du moteur local seul."); }
         } else if (this.duelUseAI && !this.pollKey) {
