@@ -2259,7 +2259,7 @@ const CLOUD = {
     return ok;
   },
   async flushPending() { const p = this.pendingGet(); if (p.length) return this.remove(p); return true; },
-  // Supprime TOUTES les analyses du cloud (pas seulement les 30 affichées)
+  // Supprime TOUTES les analyses du cloud (toutes, sans limite)
   async removeAll(knownIds) {
     const ids = new Set(knownIds || []);
     try {
@@ -2376,7 +2376,6 @@ function warRoomApp() {
     report: null,
     history: [],
     showHistory: false, showFolders: false, folderPick: null,
-    HISTORY_MAX: 30,
     cloudStatus: '',
     showSettings: false,
     settingsUnlocked: false,
@@ -3462,7 +3461,7 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
         let first = true;
         CLOUD.flushPending(); // rejoue les suppressions qui n'avaient pas pu aboutir
         const listen = () => {
-          CLOUD.col.orderBy('date', 'desc').limit(this.HISTORY_MAX).onSnapshot(snap => {
+          CLOUD.col.orderBy('date', 'desc').onSnapshot(snap => {
             const remote = snap.docs.map(d => CLOUD.fromDoc(d.data())).filter(Boolean);
             if (first) {
               // Premier instantané issu du cache (hors ligne) = incomplet : on n'en conclut rien, on attend le serveur
@@ -3506,15 +3505,13 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
         localOnly = [];
       }
       const merged = [...remote.filter(h => !CLOUD.isDead(h.id)), ...localOnly]
-        .sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, this.HISTORY_MAX);
+        .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
       const keep = new Set(merged.map(h => h.id));
       localOnly.filter(h => keep.has(h.id)).forEach(h => CLOUD.push(h));
       CLOUD.syncedAdd(remote.filter(h => !CLOUD.isDead(h.id)).map(h => h.id));
       this._remoteLast = merged;
       this.history = merged;
       this.persistHistory();
-      // anciennes analyses hors plafond : supprimées aussi du cloud, sinon elles « remontent » à chaque suppression
-      if (snap.size >= this.HISTORY_MAX) CLOUD.purgeBeyond(snap.docs[snap.docs.length - 1]);
     },
     _applyRemote(remote) {
       this._remoteLast = remote;
@@ -3525,7 +3522,8 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
       this.persistHistory();
     },
     persistHistory() {
-      localStorage.setItem('warroom_history', JSON.stringify(this.history.slice(0, this.HISTORY_MAX)));
+      try { localStorage.setItem('warroom_history', JSON.stringify(this.history)); }
+      catch (e) { console.warn('Cache local plein : historique conservé dans le cloud uniquement', e); }
     },
     addHistoryEntry(reportData, system, rawList) {
       const entry = {
@@ -3538,11 +3536,8 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
         rawList, report: reportData
       };
       this.history.unshift(entry);
-      let trimmed = [];
-      if (this.history.length > this.HISTORY_MAX) { trimmed = this.history.slice(this.HISTORY_MAX); this.history = this.history.slice(0, this.HISTORY_MAX); }
       this.persistHistory();
       CLOUD.push(entry); // synchronisation Firestore
-      if (trimmed.length) CLOUD.remove(trimmed.map(h => h.id)); // les plus anciennes sont aussi supprimées du cloud
       return entry.id;
     },
     openHistoryItem(id) {
@@ -3615,7 +3610,7 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
       this.history = [];
       this.currentHistoryId = null;
       this.persistHistory();
-      this._cloudDelete(() => CLOUD.removeAll(ids)); // supprime TOUT le cloud, pas seulement les 30 affichées
+      this._cloudDelete(() => CLOUD.removeAll(ids)); // supprime TOUT le cloud, toutes, sans limite
     },
     formatDate(iso) {
       const d = new Date(iso);
