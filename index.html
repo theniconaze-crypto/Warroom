@@ -1081,7 +1081,7 @@
    ========================================================= */
 const FACTION_DB = {
   '40k': [
-    {name:'Space Marines (Adeptus Astartes)', keys:['space marine','adeptus astartes','intercessor','ultramarine','blood angel','dark angel','space wolves','black templar','deathwatch','imperial fist','salamander','iron hands','white scars','terminator squad','bladeguard','gladiator','repulsor','primaris'],
+    {name:'Space Marines (Adeptus Astartes)', keys:['space marine','adeptus astartes','intercessor','ultramarine','imperial fist','salamander','iron hands','white scars','terminator squad','bladeguard','gladiator','repulsor','primaris'],
      style:"Armée polyvalente d'élite : profils solides, flexibilité tactique, bonnes options dans toutes les phases.",
      forces:['Polyvalence toutes phases','Résilience par figurine élevée','Grande variété d\'outils'],
      faiblesses:['Faible nombre de figurines','Coût élevé des erreurs de placement','Peut manquer de saturation'],
@@ -1116,11 +1116,21 @@ const FACTION_DB = {
      forces:['Profils géants très létaux','Résilience brute élevée','Projection de menace immédiate'],
      faiblesses:['Très peu d\'unités pour le scoring','Vulnérable aux armes antichar dédiées','Terrain difficile à exploiter'],
      contrePhilo:"Jouer les objectifs et l'usure : concentrer l'antichar sur un châssis à la fois, utiliser les écrans pour bloquer les charges."},
+    {name:'Adeptus Titanicus', keys:['adeptus titanicus','warhound titan','reaver titan','warlord titan','princeps','titan legion','legio '],
+     style:"Légions de Titans : une ou deux machines colossales qui dominent la table en puissance de feu comme en mêlée, souvent jouées en pièce maîtresse.",
+     forces:['Puissance de feu parmi les plus élevées du jeu','Résilience colossale','Projection de menace sur toute la table'],
+     faiblesses:['Quasi aucune présence pour le scoring','Une seule cible pour tout l\'antichar adverse','Très peu d\'activations'],
+     contrePhilo:"Jouer les objectifs : ignorer le Titan autant que possible, marquer partout ailleurs et concentrer l'antichar sur un seul angle pour le faire tomber."},
     {name:'Chaos Knights', keys:['chaos knight','war dog','wardog','knight abominant','knight desecrator','knight despoiler','knight rampager','knight tyrant','dreadblade','traitoris lance','houndpack lance','infernal lance','lords of dread','traitor knight','questoris traitoris'],
      style:"Poignée de marcheurs géants corrompus : puissance de feu et mêlée colossales, soutenus par des meutes de War Dogs et des pactes infernaux.",
      forces:['Profils géants très létaux','Résilience brute élevée','Menace immédiate en mêlée comme au tir'],
      faiblesses:['Très peu d\'unités pour le scoring','Vulnérable aux armes antichar dédiées','Peu d\'activations pour couvrir la table'],
      contrePhilo:"Jouer les objectifs et l'usure : concentrer l'antichar sur un châssis à la fois, écranter les charges et marquer là où les géants ne peuvent pas être."},
+    {name:'Titanicus Traitoris', keys:['titanicus traitoris','traitor titan','warbringer nemesis','nemesis titan','dire wolf titan','warhound titan','reaver titan','warlord titan','princeps'],
+     style:"Légions de Titans traîtres : machines colossales corrompues par le Chaos, puissance de feu et de mêlée démesurées pour très peu d'activations.",
+     forces:['Puissance de feu parmi les plus élevées du jeu','Résilience colossale','Menace immédiate sur toute la table'],
+     faiblesses:['Quasi aucune présence pour le scoring','Une seule cible pour tout l\'antichar adverse','Très peu d\'activations'],
+     contrePhilo:"Jouer les objectifs et l'usure : marquer là où le Titan ne peut pas être et concentrer l'antichar sur un seul angle pour le faire tomber."},
     {name:'Imperial Agents (Agents of the Imperium)', alias:['agents of the imperium','imperial agents'], keys:['imperial agents','agents of the imperium','inquisitor','inquisition','vindicare','callidus','eversor','culexus','death cult assassin','rogue trader','aquila kill team','imperial navy breacher','sanctifier','exaction squad','voidsmen','subductor','navigator','acolyte'],
      style:"Armée de spécialistes : inquisiteurs, assassins et petites escouades d'élite aux effets ciblés, très dépendante des synergies de son détachement.",
      forces:['Frappes chirurgicales sur personnages et cibles clés','Unités discrètes et flexibles (infiltration, redéploiements)','Bonnes options de soutien et de contrôle d\'objectifs légers'],
@@ -1146,6 +1156,11 @@ const FACTION_DB = {
      forces:['Mêlée parmi les plus violentes du jeu','Pression dès le tour 1-2','Résilience correcte en avance'],
      faiblesses:['Tir quasi inexistant','Prévisibilité du plan de jeu','Vulnérable au kiting et aux écrans'],
      contrePhilo:"Écranter, reculer, saigner : sacrifier des unités jetables pour absorber les charges, puis contre-attaquer les unités engluées."},
+    {name:"Emperor's Children", keys:["emperor's children","emperors children","noise marine","flawless blade","fulgrim","lucius the eternal","lord exultant","kakophoni","blastmaster","sonic blaster","sonic amplifier"],
+     style:"Légion de perfectionnistes vouée à Slaanesh : duellistes d'élite rapides et Noise Marines à armes soniques, frappe précise et vive.",
+     forces:['Vitesse et projection de menace','Mêlée de duellistes très létale','Tir sonique efficace à courte-moyenne portée'],
+     faiblesses:['Peu de figurines, erreurs de placement punies','Résilience moyenne face au tir concentré','Dépendance au tempo de charge'],
+     contrePhilo:"Casser le tempo : écranter et tirer sur les vecteurs rapides avant la charge, puis punir les duellistes isolés avec du volume."},
     {name:'Chaos Daemons', keys:['daemon','bloodletter','plaguebearer','daemonette','pink horror','bloodthirster','great unclean one','keeper of secrets','lord of change','skarbrand','belakor','be\'lakor','nurgling','flamer of tzeentch','screamer'],
      style:"Horreurs surnaturelles : grands démons terrifiants soutenus par des nuées, pression psychologique sur la table.",
      forces:['Grands démons très puissants','Bonne présence sur le terrain','Résiliences invulnérables fiables'],
@@ -1171,7 +1186,7 @@ const FACTION_DB = {
      forces:['Redéploiements et embuscades','Excellent scoring opportuniste','Imprévisibilité du placement'],
      faiblesses:['Fragilité générale extrême','Dégâts bruts limités','Punition sévère en combat frontal'],
      contrePhilo:"Écranter chaque pouce : sans zone d'arrivée libre, l'embuscade s'effondre et la fragilité fait le reste."},
-    {name:'Aeldari (Craftworlds)', keys:['aeldari','eldar','guardian','wraithguard','wraithlord','avatar','farseer','warlock','fire dragon','howling banshee','dire avenger','wave serpent','falcon','war walker','windrider','swooping hawk','striking scorpion'],
+    {name:'Aeldari', alias:['aeldari (craftworlds)','harlequins','ynnari'], keys:['aeldari','eldar','harlequin','troupe master','shadowseer','death jester','solitaire','starweaver','voidweaver','skyweaver','ynnari','yvraine','visarch','corsair','void dreamer','guardian','wraithguard','wraithlord','avatar','farseer','warlock','fire dragon','howling banshee','dire avenger','wave serpent','falcon','war walker','windrider','swooping hawk','striking scorpion'],
      style:"Vitesse et précision chirurgicale : unités spécialisées excellentes dans leur rôle unique.",
      forces:['Mobilité de pointe','Spécialistes très efficaces','Capacité de frappe alpha'],
      faiblesses:['Fragilité quasi générale','Peu de marge d\'erreur','Attrition défavorable'],
@@ -1386,6 +1401,20 @@ const SM_CHAPTERS = [
    faiblesses:["Très peu d'unités, coût élevé","Fragile à la perte de personnages","Sensible à la saturation"],
    contrePhilo:"Saturer avec des unités peu chères, multiplier les menaces et éviter de lui offrir les cibles pour lesquelles il est équipé."}
 ];
+
+/* 11e édition : 5 chapitres ont leur propre faction (codex dédié). Ils restent des chapitres au sens du moteur,
+   mais sont aussi proposés comme factions autonomes dans le sélecteur. */
+const SM_STANDALONE = ['Blood Angels','Dark Angels','Space Wolves','Black Templars','Deathwatch'];
+(function () {
+  const db = FACTION_DB['40k'], base = db.find(f => /^Space Marines/.test(f.name));
+  if (!base) return;
+  let at = db.indexOf(base) + 1;
+  SM_STANDALONE.forEach(n => {
+    const c = SM_CHAPTERS.find(x => x.name === n);
+    if (!c || db.some(f => f.name === n)) return;
+    db.splice(at++, 0, { ...base, name:n, alias:[], keys:c.keys.concat(n.toLowerCase()), chapter:n });
+  });
+})();
 
 const ROLE_KEYS = {
   antichar: ['lascannon','canon laser','melta','fuseur','multi-melta','multifuseur','railgun','haywire','dark lance','canon à distorsion','distorsion','brightlance','lance éclatante','missile krak','krak','canon d\'assaut lourd','volcano','turbo-laser','canon magma','exorcist missile','canon sismique','anti-tank','antichar','canon jumelé perforant','gauss destructor','canon à induction','ion lourd'],
@@ -2732,24 +2761,24 @@ function warRoomApp() {
     factionOptions() { return (FACTION_DB[this.gameSystem] || []).map(f => f.name); },
     forcedFactionObj() {
       if (!this.forcedFaction) return null;
-      return (FACTION_DB[this.gameSystem] || []).find(f => f.name === this.forcedFaction) || null;
+      return (FACTION_DB[this.gameSystem] || []).find(f => f.name === this.forcedFaction || (f.alias || []).includes(String(this.forcedFaction).toLowerCase())) || null;
     },
     // Changement de faction : si une analyse est affichée, on la refait sur la même liste et on met à jour l'historique
     onFactionChange() {
-      if (this.forcedFaction && !this.isSpaceMarinesName(this.forcedFaction)) this.forcedChapter = '';
+      if (this.forcedFaction && (!this.isSpaceMarinesName(this.forcedFaction) || SM_STANDALONE.includes(this.forcedFaction))) this.forcedChapter = '';
       if (this.report && this.rawList.trim()) this.analyze({ updateId: this.currentHistoryId });
     },
     onChapterChange() {
       if (this.report && this.rawList.trim()) this.analyze({ updateId: this.currentHistoryId });
     },
-    isSpaceMarinesName(n) { return /^Space Marines/.test(n || ''); },
+    isSpaceMarinesName(n) { return /^Space Marines/.test(n || '') || SM_STANDALONE.includes(n); },
     // Sélecteur de chapitre visible pour les listes Space Marines (faction forcée, déjà analysée ou détectée dans la liste)
     showChapter() {
       if (this.gameSystem !== '40k') return false;
-      if (this.forcedFaction) return this.isSpaceMarinesName(this.forcedFaction);
-      if (this.report && this.report.faction_detectee) return this.isSpaceMarinesName(this.report.faction_detectee);
+      if (this.forcedFaction) return this.isSpaceMarinesName(this.forcedFaction) && !SM_STANDALONE.includes(this.forcedFaction);
+      if (this.report && this.report.faction_detectee) return this.isSpaceMarinesName(this.report.faction_detectee) && !SM_STANDALONE.includes(this.report.faction_detectee);
       const f = this.rawList.trim() ? this.detectFaction(this.rawList) : null;
-      return !!f && this.isSpaceMarinesName(f.name);
+      return !!f && this.isSpaceMarinesName(f.name) && !SM_STANDALONE.includes(f.name);
     },
     chapterOptions() { return SM_CHAPTERS.map(c => c.name); },
     detectChapter(raw) {
@@ -2774,6 +2803,10 @@ function warRoomApp() {
         let hits = 0;
         for (const k of f.keys) if (low.includes(k)) hits++;
         if (hits > bestHits) { bestHits = hits; best = f; }
+      }
+      if (bestHits > 0 && this.isSpaceMarinesName(best.name)) {
+        const c = this.detectChapter(raw), sa = c && db.find(f => f.name === c.name && f.chapter);
+        if (sa) return sa;
       }
       return bestHits > 0 ? best : null;
     },
@@ -2828,8 +2861,8 @@ function warRoomApp() {
         if (forced) faction = forced;
         let chapter = null, chapterForced = false;
         if (this.gameSystem === '40k' && faction && this.isSpaceMarinesName(faction.name)) {
-          chapter = this.forcedChapter ? SM_CHAPTERS.find(c => c.name === this.forcedChapter) : this.detectChapter(this.rawList);
-          chapterForced = !!(this.forcedChapter && chapter);
+          chapter = faction.chapter ? SM_CHAPTERS.find(c => c.name === faction.chapter) : (this.forcedChapter ? SM_CHAPTERS.find(c => c.name === this.forcedChapter) : this.detectChapter(this.rawList));
+          chapterForced = !!((faction.chapter || this.forcedChapter) && chapter);
           if (chapter) faction = this.withChapter(faction, chapter);
         }
         const refPts = Math.max(totalPts, 750);
