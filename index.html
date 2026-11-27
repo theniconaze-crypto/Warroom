@@ -143,6 +143,12 @@
             📚 RULES
             <div class="text-[10px] font-mono opacity-70 mt-0.5">règles · fiches · warscrolls</div>
           </button>
+          <button @click="mode='builder'; bdLoad()"
+            class="flex-1 py-2.5 rounded-lg border font-orbitron text-xs tracking-wide transition"
+            :class="mode==='builder' ? 'bg-neon-cyan/10 border-neon-cyan text-neon-cyan' : 'border-void-700 text-slate-500 hover:border-slate-500'">
+            🛠 BUILDER
+            <div class="text-[10px] font-mono opacity-70 mt-0.5">composer une liste</div>
+          </button>
         </div>
       </div>
     </section>
@@ -317,8 +323,8 @@
                     <p x-show="v.lf" class="text-slate-500 whitespace-pre-line" x-text="v.lf"></p></div>
                   <p x-show="v.tr" class="text-xs text-slate-400 whitespace-pre-line" x-text="'Transport : ' + v.tr"></p>
                   <div class="text-[11px] font-mono text-slate-500 space-y-1">
-                    <p x-show="v.kw.length"><span class="text-slate-400">Mots-clés : </span><span x-text="v.kw.join(', ')"></span></p>
-                    <p x-show="v.fkw.length"><span class="text-slate-400">Faction : </span><span x-text="v.fkw.join(', ')"></span></p>
+                    <p x-show="v.kw.length"><span class="text-slate-400">Mots-clés : </span><template x-for="(k,ki) in v.kw" :key="ki"><span class="cursor-help hover:text-neon-cyan underline decoration-dotted decoration-slate-600 underline-offset-2" @mouseenter="kwShow($event, k, false)" @mouseleave="kwHide()"><span x-text="k"></span><span x-show="ki < v.kw.length - 1">, </span></span></template></p>
+                    <p x-show="v.fkw.length"><span class="text-slate-400">Faction : </span><template x-for="(k,ki) in v.fkw" :key="ki"><span class="cursor-help hover:text-neon-cyan underline decoration-dotted decoration-slate-600 underline-offset-2" @mouseenter="kwShow($event, k, true)" @mouseleave="kwHide()"><span x-text="k"></span><span x-show="ki < v.fkw.length - 1">, </span></span></template></p>
                   </div>
                 </div>
               </template>
@@ -364,12 +370,32 @@
                   <p class="mt-1 text-[13px] leading-relaxed text-slate-300 whitespace-pre-line" x-text="r.d"></p>
                 </div></template>
                   </div>
-                  <p x-show="v.kw.length" class="text-[11px] font-mono text-slate-500"><span class="text-slate-400">Mots-clés : </span><span x-text="v.kw.join(', ')"></span></p>
+                  <p x-show="v.kw.length" class="text-[11px] font-mono text-slate-500"><span class="text-slate-400">Mots-clés : </span><template x-for="(k,ki) in v.kw" :key="ki"><span class="cursor-help hover:text-neon-cyan underline decoration-dotted decoration-slate-600 underline-offset-2" @mouseenter="kwShow($event, k, false)" @mouseleave="kwHide()"><span x-text="k"></span><span x-show="ki < v.kw.length - 1">, </span></span></template></p>
                 </div>
               </template>
             </div>
           </template>
         </div>
+      </div>
+      <div x-show="kwTip" x-cloak @mouseenter="kwKeep()" @mouseleave="kwHide()"
+        class="fixed z-50 w-[360px] max-w-[92vw] max-h-[50vh] overflow-y-auto bg-void-900 border border-neon-cyan/50 rounded-lg shadow-glowCyan p-3 space-y-2"
+        :style="kwTip ? ('left:' + kwTip.left + 'px;' + (kwTip.top !== null ? 'top:' + kwTip.top + 'px;' : 'bottom:' + kwTip.bottom + 'px;')) : ''">
+        <div class="font-orbitron text-[11px] tracking-widest text-neon-cyan" x-text="kwTip && kwTip.k"></div>
+        <template x-if="kwTip && kwTip.custom && !kwEdit"><p class="text-xs leading-relaxed text-slate-200 whitespace-pre-line" x-text="kwTip.custom"></p></template>
+        <template x-if="kwTip && !kwEdit"><div class="space-y-2">
+          <template x-for="(r,ri) in kwTip.rules" :key="ri"><div class="border-t border-void-700 pt-2">
+            <p class="text-xs font-semibold text-white" x-text="r.t"></p>
+            <p class="text-[10px] font-mono text-slate-500" x-text="r.c"></p>
+            <p class="mt-1 text-xs leading-relaxed text-slate-300 whitespace-pre-line" x-text="r.d.length > 700 ? r.d.slice(0, 700) + '…' : r.d"></p>
+          </div></template>
+          <p x-show="!kwTip.custom && !kwTip.rules.length" class="text-xs text-slate-500">Aucune règle liée à ce mot-clé dans les données importées. Vous pouvez saisir sa définition.</p>
+          <button @click="kwStartEdit()" class="text-[10px] font-mono text-slate-400 hover:text-neon-cyan" x-text="kwTip.custom ? '✎ Modifier la définition' : '✎ Définir ce mot-clé'"></button>
+        </div></template>
+        <template x-if="kwEdit"><div class="space-y-2">
+          <textarea x-model="kwDraft" rows="5" class="w-full bg-void-850 border border-void-700 rounded px-2 py-1 text-xs font-mono text-slate-200 focus:border-neon-cyan/60" placeholder="Règle de ce mot-clé…"></textarea>
+          <div class="flex gap-2"><button @click="kwSave()" class="text-[11px] font-mono px-2 py-1 rounded border border-neon-green text-neon-green">Enregistrer</button>
+            <button @click="kwEdit=false" class="text-[11px] font-mono px-2 py-1 rounded border border-void-700 text-slate-400">Annuler</button></div>
+        </div></template>
       </div>
     </section>
 
@@ -618,6 +644,111 @@
 
       </div>
     </template>
+
+    <!-- BUILDER -->
+    <section x-show="mode==='builder'" x-cloak class="bg-void-900 border border-void-700 rounded-xl p-5 space-y-4">
+      <div class="flex flex-wrap items-center gap-2">
+        <h2 class="font-orbitron text-xs tracking-widest text-neon-cyan">🛠 BUILDER — <span x-text="gameSystem==='40k' ? 'WARHAMMER 40,000' : 'AGE OF SIGMAR'"></span></h2>
+        <select x-model="bd.f" @change="bdSave()" class="bg-void-800 border border-void-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 max-w-full">
+          <option value="">Choisir une faction…</option>
+          <template x-for="f in bdFactions()" :key="f"><option :value="f" x-text="f"></option></template>
+        </select>
+        <input x-model="bd.q" placeholder="Rechercher une unité…" class="flex-1 min-w-[160px] bg-void-800 border border-void-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 focus:border-neon-cyan/60">
+      </div>
+      <div class="flex flex-wrap items-center gap-2 text-xs font-mono">
+        <button @click="bdSaveList()" :disabled="!bd.items.length" class="px-3 py-1.5 rounded-lg border border-neon-green text-neon-green disabled:opacity-40" x-text="bd.libId ? '💾 Mettre à jour' : '💾 Enregistrer'"></button>
+        <button @click="bdNew()" class="px-3 py-1.5 rounded-lg border border-void-700 text-slate-300 hover:border-slate-500">＋ Nouvelle liste</button>
+        <button @click="bdLibOpen=!bdLibOpen" class="px-3 py-1.5 rounded-lg border border-void-700 text-slate-300 hover:border-slate-500" x-text="'📚 Mes listes (' + bdLib.lists.length + ')'"></button>
+        <span x-show="bdLibMsg" class="text-neon-green" x-text="bdLibMsg"></span>
+      </div>
+      <div x-show="bdLibOpen" x-cloak class="rounded-lg border border-void-700 p-3 space-y-3">
+        <div class="flex items-center justify-between"><h3 class="font-orbitron text-[11px] tracking-widest text-neon-green">MES LISTES</h3>
+          <button x-show="canEdit()" @click="bdAddFolder()" class="text-[11px] border border-void-700 rounded px-2 py-0.5 text-slate-300 hover:bg-void-700">＋ Dossier</button></div>
+        <p x-show="!bdLib.lists.length" class="text-xs text-slate-500">Aucune liste enregistrée.</p>
+        <template x-for="g in bdLibGroups()" :key="g.name"><div class="space-y-1">
+          <div class="flex items-center gap-2 text-xs"><span class="font-semibold text-neon-green" x-text="(g.name ? '📁 ' + g.name : '📄 Sans dossier') + ' (' + g.items.length + ')'"></span>
+            <template x-if="g.name && canEdit()"><button @click="bdRenFolder(g.name)" class="text-[10px] text-slate-400 hover:text-slate-200">✎</button></template>
+            <template x-if="g.name && canDelete()"><button @click="bdDelFolder(g.name)" class="text-[10px] text-slate-400 hover:text-neon-red">🗑</button></template></div>
+          <template x-for="l in g.items" :key="l.id"><div class="flex flex-wrap items-center gap-2 text-xs bg-void-800 border border-void-700 rounded px-2 py-1">
+            <span class="flex-1 min-w-[120px] text-slate-200" x-text="l.name + ' — ' + l.faction + ' (' + l.pts + ' pts, ' + (l.system === '40k' ? '40k' : 'AoS') + ')' + (l.by ? ' · ' + l.by : '')"></span>
+            <select x-show="canEdit()" :value="l.folder" @change="bdMoveList(l.id, $event.target.value)" class="bg-void-900 border border-void-700 rounded px-1 py-0.5 text-[10px] text-slate-300">
+              <option value="">Sans dossier</option><template x-for="f in bdFolderNames()" :key="f"><option :value="f" :selected="l.folder===f" x-text="'📁 ' + f"></option></template></select>
+            <button @click="bdOpenList(l.id)" class="text-neon-green border border-neon-green/30 rounded px-2 py-0.5">Ouvrir</button>
+            <button @click="bdDupList(l.id)" title="Dupliquer" class="text-slate-400 hover:text-neon-cyan">⧉</button>
+            <button x-show="canDelete()" @click="bdDelList(l.id)" title="Supprimer" class="text-slate-400 hover:text-neon-red">🗑</button>
+          </div></template></div></template>
+        <p class="text-[10px] font-mono text-slate-500">Listes synchronisées avec Firestore et partagées entre les comptes (copie locale conservée hors ligne).</p>
+      </div>
+      <p x-show="!bdFactions().length" class="text-xs text-slate-500">Aucune donnée — importez d'abord les CSV (Wahapedia pour 40k, pack AoS pour Age of Sigmar).</p>
+      <div class="grid lg:grid-cols-2 gap-4" x-show="bdFactions().length">
+        <div class="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
+          <p x-show="!bd.f" class="text-xs text-slate-500">Choisissez une faction pour afficher ses unités.</p>
+          <template x-for="g in bdPool()" :key="g.cat">
+            <div><h3 class="font-orbitron text-[11px] tracking-widest text-neon-green mb-1" x-text="g.cat + ' (' + g.units.length + ')'"></h3>
+              <template x-for="u in g.units" :key="u.id"><div class="flex flex-wrap items-center gap-2 py-1 border-b border-void-800 text-xs">
+                <span class="flex-1 min-w-[120px] text-slate-200" x-text="u.n"></span>
+                <template x-for="(o,oi) in u.opts" :key="oi">
+                  <button @click="bdAdd(u, o)" class="px-2 py-0.5 rounded border border-void-700 text-[11px] font-mono text-slate-300 hover:border-neon-cyan hover:text-neon-cyan"
+                    x-text="(o.lbl ? o.lbl + ' · ' : '') + o.pts + ' pts'"></button></template>
+              </div></template>
+            </div>
+          </template>
+        </div>
+        <div class="space-y-3">
+          <div class="flex flex-wrap items-center gap-2 text-xs font-mono">
+            <input x-model="bd.name" @input="bdSave()" placeholder="Nom de la liste" class="flex-1 min-w-[140px] bg-void-800 border border-void-700 rounded-lg px-3 py-2 text-slate-200">
+            <select x-show="gameSystem==='40k'" x-model="bd.size" @change="bdSave()" class="bg-void-800 border border-void-700 rounded-lg px-2 py-2 text-slate-200">
+              <template x-for="(v,k) in bdSizes" :key="k"><option :value="k" x-text="v.l + ' · ' + v.pts + ' pts'"></option></template></select>
+            <template x-if="gameSystem!=='40k'"><span class="flex items-center gap-2"><label class="text-slate-400">Limite</label>
+              <input type="number" x-model.number="bd.limit" @input="bdSave()" class="w-20 bg-void-800 border border-void-700 rounded-lg px-2 py-2 text-slate-200"><span class="text-slate-400">pts</span></span></template>
+          </div>
+          <div class="rounded-lg border p-2 text-xs font-mono flex justify-between" :class="bdTotal() > bdLimit() ? 'border-neon-red text-neon-red' : 'border-void-700 text-neon-amber'">
+            <span x-text="bdTotal() + ' / ' + bdLimit() + ' pts'"></span>
+            <span x-text="bd.items.length + ' unité(s)'"></span>
+          </div>
+          <div x-show="gameSystem==='40k' && bd.f" class="rounded-lg border border-void-700 p-2 space-y-1">
+            <div class="flex flex-wrap items-center gap-2 text-xs font-mono">
+              <span class="text-slate-400" x-text="'Détachements (' + bd.dets.reduce((a,d) => a + (+d.dp||0), 0) + ' / ' + (bdRule() ? bdRule().dp : 0) + ' PD)'"></span>
+              <select @change="bdAddDet($event.target.value); $event.target.value=''" class="flex-1 min-w-[140px] bg-void-800 border border-void-700 rounded px-2 py-1 text-slate-200">
+                <option value="">+ Ajouter un détachement…</option>
+                <template x-for="d in bdDetList()" :key="d.id"><option :value="d.id" x-text="d.n"></option></template></select>
+            </div>
+            <template x-for="d in bd.dets" :key="d.id"><div class="flex items-center gap-2 text-xs">
+              <span class="flex-1 text-slate-200" x-text="d.n"></span>
+              <label class="text-slate-500 font-mono">coût</label>
+              <select x-model.number="d.dp" @change="bdSave()" class="bg-void-800 border border-void-700 rounded px-1 py-0.5 text-slate-200"><option :value="1">1 PD</option><option :value="2">2 PD</option><option :value="3">3 PD</option></select>
+              <button @click="bdDelDet(d)" class="text-slate-500 hover:text-neon-red">✕</button></div></template>
+            <p class="text-[10px] font-mono text-slate-500">Coût en PD repris des CSV quand il est renseigné, sinon 1 par défaut : modifiable.</p>
+          </div>
+          <div x-show="bdIssues().length" class="space-y-1"><template x-for="(i,ix) in bdIssues()" :key="ix">
+            <p class="text-[11px] font-mono rounded px-2 py-1 border" :class="i.e ? 'border-neon-red/60 text-neon-red' : 'border-neon-amber/40 text-neon-amber'" x-text="(i.e ? '✕ ' : '⚠ ') + i.m"></p></template></div>
+          <p x-show="bd.items.length && !bdIssues().length" class="text-[11px] font-mono text-neon-green">✓ Liste valide</p>
+          <div class="space-y-1 max-h-[45vh] overflow-y-auto pr-1">
+            <p x-show="!bd.items.length" class="text-xs text-slate-500">Liste vide — cliquez sur une taille d'unité à gauche pour l'ajouter.</p>
+            <template x-for="r in bdRows()" :key="r.it.uid"><template x-for="it in [r.it]" :key="it.uid"><div class="flex items-center gap-2 text-xs bg-void-800 border rounded px-2 py-1" :class="r.d ? 'ml-6 border-neon-cyan/40' : 'border-void-700'">
+              <span x-show="r.d" class="text-neon-cyan">↳</span>
+              <select x-show="bdHosts(it).length" x-model="it.att" @change="bdSave()" class="max-w-[150px] bg-void-900 border border-void-700 rounded px-1 py-0.5 text-[10px] text-slate-300">
+                <option value="">Rattacher à…</option>
+                <template x-for="h in bdHosts(it)" :key="h.uid"><option :value="h.uid" x-text="h.n"></option></template></select>
+              <span class="flex-1 text-slate-200" x-text="it.n + (it.lbl ? ' (' + it.lbl + ')' : '')"></span>
+              <select x-show="gameSystem==='40k' && bdEnhAll().length" x-model="it.en" @change="bdSave()" class="max-w-[140px] bg-void-900 border border-void-700 rounded px-1 py-0.5 text-[10px] text-slate-300">
+                <option value="">Amélioration…</option>
+                <template x-for="e in bdEnhAll()" :key="e.key"><option :value="e.key" x-text="e.n + (e.c ? ' (' + e.c + ')' : '')"></option></template></select>
+              <span class="font-mono text-neon-amber" x-text="((+it.pts||0) + (bdEnhOf(it) ? bdEnhOf(it).c : 0)) + ' pts'"></span>
+              <button @click="bdDup(it)" title="Dupliquer" class="text-slate-500 hover:text-neon-cyan">⧉</button>
+              <button @click="bdDel(it)" title="Retirer" class="text-slate-500 hover:text-neon-red">✕</button>
+            </div></template></template>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button @click="bdCopy()" :disabled="!bd.items.length" class="px-3 py-2 rounded-lg border border-neon-cyan text-neon-cyan text-xs font-mono disabled:opacity-40" x-text="bdCopied ? '✓ Copié' : 'Copier'"></button>
+            <button @click="bdTxt()" :disabled="!bd.items.length" class="px-3 py-2 rounded-lg border border-neon-cyan text-neon-cyan text-xs font-mono disabled:opacity-40">⬇ TXT</button>
+            <button @click="bdPdf()" :disabled="!bd.items.length" class="px-3 py-2 rounded-lg border border-neon-cyan text-neon-cyan text-xs font-mono disabled:opacity-40">⬇ PDF</button>
+            <button @click="bdToAnalyse()" :disabled="!bd.items.length" class="px-3 py-2 rounded-lg border border-neon-green text-neon-green text-xs font-mono disabled:opacity-40">Envoyer vers Analyse</button>
+            <button @click="if (confirm('Vider la liste ?')) { bd.items = []; bdSave(); }" :disabled="!bd.items.length" class="px-3 py-2 rounded-lg border border-void-700 text-slate-400 text-xs font-mono disabled:opacity-40">Vider</button>
+          </div>
+        </div>
+      </div>
+    </section>
 
     <!-- INPUT -->
     <section x-show="mode==='analyse'" class="bg-void-900 border border-void-700 rounded-xl p-5 space-y-4">
@@ -2481,7 +2612,7 @@ const CODEX = (() => {
   }
   const grp = (par, id, l, items, mk) => { if (!items || !items.length) return null; const g = add(par.id + ':' + id, l + ' (' + items.length + ')', 'grp', null, par); items.forEach((it, i) => mk(it, i, g)); return g; };
   function build() {
-    N = {}; ROOT = []; U40 = {};
+    N = {}; ROOT = []; U40 = {}; KIDX = null;
     const w = WAHA.db, a = AOS.db;
     // ---------------- 40k ----------------
     const s40 = add('40k', 'Warhammer 40,000', 'sys');
@@ -2530,6 +2661,28 @@ const CODEX = (() => {
     }
   }
   const ensure = () => { if (key0 !== WAHA.db || key1 !== AOS.db || !ROOT.length) { key0 = WAHA.db; key1 = AOS.db; build(); } };
+  // --- Règles liées à un mot-clé (survol) ---
+  let KIDX = null;
+  const sing = x => x.replace(/ies$/, 'y').replace(/s$/, '');
+  function kwIndex() {
+    if (KIDX) return KIDX; KIDX = {};
+    Object.keys(N).forEach(id => { const n = N[id]; if (n.k !== 'rule' || !n.r || !n.r.n) return;
+      const key = sing(nm(n.r.n).trim()); (KIDX[key] = KIDX[key] || []).push(n); });
+    return KIDX;
+  }
+  function kwInfo(k, id, isFaction) {
+    ensure(); const nk = nm(k).trim(), sk = sing(nk), out = [];
+    const P = id && N[id] ? path(id) : [], fac = P.find(x => x.k === 'fac'), sys = P[0] && P[0].id;
+    const inSys = n => !sys || n.id === sys || n.id.startsWith(sys + ':');
+    const facId = fac && fac.id;
+    const hits = (kwIndex()[sk] || []).filter(inSys).sort((a, b) => ((b.id.startsWith(facId + ':') ? 1 : 0) - (a.id.startsWith(facId + ':') ? 1 : 0)));
+    hits.slice(0, 3).forEach(n => out.push({ t:n.r.n, c:n.r.ctx || '', d:n.r.d || '' }));
+    if (isFaction && fac) {   // mot-clé de faction : règles d'armée de la faction qui le citent
+      (fac.c.find(g => g.id.endsWith(':ar')) || { c:[] }).c.forEach(n => {
+        if (nm(n.r.d).includes(nk) && !out.some(o => o.t === n.r.n)) out.push({ t:n.r.n, c:n.r.ctx || '', d:n.r.d || '' }); });
+    }
+    return out;
+  }
   function visible(open) { ensure(); const out = []; const walk = L => L.forEach(n => { out.push(n); if (open[n.id] && n.c.length) walk(n.c); }); walk(ROOT); return out; }
   const path = id => { const o = []; let n = N[id]; while (n) { o.unshift(n); n = N[n.p]; } return o; };
   function search(q, inText) {
@@ -2567,7 +2720,7 @@ const CODEX = (() => {
     return { legacy:false, lg:x.lg, sub:x.sub, st:[['Mouvement', x.mv], ['Santé', x.hp], ['Sauvegarde', x.sv], ['Contrôle', x.ctl], ['Ward', x.ward]].filter(s => s[1]),
       pts:x.pts, sz:x.sz, base:x.base, ranged:x.wp.filter(p => p.t === 'R'), melee:x.wp.filter(p => p.t !== 'R'), abil:x.ab, kw:x.kw };
   }
-  return { ensure, visible, path, search, v40, vAos, node:id => (ensure(), N[id]) };
+  return { ensure, visible, path, search, v40, vAos, kwInfo, node:id => (ensure(), N[id]) };
 })();
 
 /* Mot de passe des réglages (en dur, local uniquement : jamais synchronisé avec Firestore) */
@@ -2758,7 +2911,184 @@ function warRoomApp() {
     gameSystem: '40k',
     mode: 'analyse',
     cxOpen: { '40k':true, 'aos':true }, cxSel: null, cxQ: '', cxTxt: false,
+    kwTip: null, kwTimer: null, kwEdit: false, kwDraft: '',
+    bd: { f:'', q:'', name:'', limit:2000, size:'strike', dets:[], items:[], libId:'' }, bdCopied: false,
+    bdLib: { lists:[], folders:[] }, bdLibOpen: false, bdLibMsg: '',
+    bdSizes: { incursion:{ l:'Incursion', pts:1000, dp:2, en:2, ul:2 }, strike:{ l:'Strike Force', pts:2000, dp:3, en:4, ul:3 } },
     cxDeps() { return this.wStatus + '|' + this.aStatus; },
+    kwGloss() { try { return JSON.parse(localStorage.getItem('warroom_kwgloss') || '{}'); } catch (e) { return {}; } },
+    kwGKey(k) { return this.gameSystem + '|' + String(k).toLowerCase().trim(); },
+    kwShow(ev, k, isF) {
+      clearTimeout(this.kwTimer); if (this.kwTip && this.kwTip.k === k && this.kwEdit) return;
+      const r = ev.currentTarget.getBoundingClientRect();
+      const left = Math.max(8, Math.min(r.left, window.innerWidth - 380)), below = r.top < 260;
+      this.kwEdit = false;
+      this.kwTip = { k, left, top: below ? r.bottom + 2 : null, bottom: below ? null : (window.innerHeight - r.top + 2),
+        custom: this.kwGloss()[this.kwGKey(k)] || '', rules: CODEX.kwInfo(k, this.cxSel, !!isF) };
+    },
+    kwHide() { clearTimeout(this.kwTimer); this.kwTimer = setTimeout(() => { if (!this.kwEdit) this.kwTip = null; }, 250); },
+    kwKeep() { clearTimeout(this.kwTimer); },
+    kwStartEdit() { this.kwDraft = this.kwTip.custom; this.kwEdit = true; },
+    kwSave() {
+      const g = this.kwGloss(), key = this.kwGKey(this.kwTip.k), v = this.kwDraft.trim();
+      if (v) g[key] = v; else delete g[key];
+      try { localStorage.setItem('warroom_kwgloss', JSON.stringify(g)); } catch (e) {}
+      this.kwTip.custom = v; this.kwEdit = false;
+    },
+    // --- BUILDER : composition de liste à partir des unités importées ---
+    bdKey() { return 'warroom_builder_' + this.gameSystem; },
+    bdLoad() { let o = null; try { o = JSON.parse(localStorage.getItem(this.bdKey()) || 'null'); } catch (e) {} this.bd = Object.assign({ f:'', q:'', name:'', limit:2000, size:'strike', dets:[], items:[], libId:'' }, o || {}); },
+    bdSave() { try { localStorage.setItem(this.bdKey(), JSON.stringify(this.bd)); } catch (e) {} },
+    bdUnits() {
+      this.cxDeps();
+      if (this.gameSystem === '40k') { const w = WAHA.db; return (w && w.units || []).map(u => ({ id:u.id, n:u.n, f:u.f, cat:u.role || 'Autres',
+        leads:u.leads || [], opts:(u.cost || []).filter(c => +c.c).map(c => ({ lbl:c.n ? c.n + ' fig.' : '', pts:+c.c })) })); }
+      const a = AOS.db; return (a && a.ws || []).map(x => { const kw = (x.kw || []).join(' ').toLowerCase();
+        return { id:x.id, n:x.n, f:x.f, cat:/\bhero/.test(kw) ? 'Héros' : /monster/.test(kw) ? 'Monstres' : /war machine/.test(kw) ? 'Machines de guerre' : 'Unités',
+          opts:+x.pts ? [{ lbl:x.models ? x.models + ' fig.' : '', pts:+x.pts }] : [] }; });
+    },
+    bdFactions() { return [...new Set(this.bdUnits().map(u => u.f).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr')); },
+    bdPool() {
+      const q = (this.bd.q || '').toLowerCase().trim(), ord = ['Epic Hero','Characters','Héros','Battleline','Dedicated Transports','Infantry','Mounted','Beast','Beasts','Monster','Monstres','Vehicle','Machines de guerre','Fortification','Unités'];
+      const by = {}; this.bdUnits().filter(u => this.bd.f && u.f === this.bd.f && u.opts.length && (!q || u.n.toLowerCase().includes(q))).forEach(u => (by[u.cat] = by[u.cat] || []).push(u));
+      const rk = c => { const i = ord.indexOf(c); return i < 0 ? 99 : i; };
+      return Object.keys(by).sort((a, b) => rk(a) - rk(b) || a.localeCompare(b)).map(cat => ({ cat, units: by[cat].sort((a, b) => a.n.localeCompare(b.n, 'fr')) }));
+    },
+    bdAdd(u, o) { this.bd.items.push({ uid: String(Date.now() + Math.random()), id:u.id, n:u.n, cat:u.cat, lbl:o.lbl, pts:o.pts, att:'', en:'' }); this.bdSave(); },
+    bdDup(it) { this.bd.items.splice(this.bd.items.indexOf(it) + 1, 0, Object.assign({}, it, { uid: String(Date.now() + Math.random()), att:'', en:'' })); this.bdSave(); },
+    bdDel(it) { this.bd.items.forEach(x => { if (String(x.att) === String(it.uid)) x.att = ''; }); this.bd.items = this.bd.items.filter(x => x !== it); this.bdSave(); },
+    bdLeads(it) {
+      const a = WAHA.db && WAHA.db.units; if (!a) return [];
+      if (!window.__bdUM || window.__bdUM.a !== a) window.__bdUM = { a, m:new Map(a.map(u => [String(u.id), u.leads || []])) };
+      return (window.__bdUM.m.get(String(it.id)) || []).map(String);
+    },
+    bdHosts(it) { const L = this.bdLeads(it); return L.length ? this.bd.items.filter(h => h !== it && L.includes(String(h.id)) && !h.att) : []; },
+    bdRows() {
+      const ids = new Set(this.bd.items.map(x => String(x.uid))), out = [];
+      this.bd.items.filter(x => !x.att || !ids.has(String(x.att))).forEach(h => { out.push({ it:h, d:0 });
+        this.bd.items.filter(c => c !== h && String(c.att) === String(h.uid)).forEach(c => out.push({ it:c, d:1 })); });
+      return out;
+    },
+    bdLines() {
+      const R = this.bdRule(), L = [], ids = new Set(this.bd.items.map(x => String(x.uid)));
+      const line = (it, i) => { const e = this.bdEnhOf(it); return { n:it.n, e:e ? e.n : '', p:(+it.pts || 0) + (e ? e.c : 0), i }; };
+      const top = this.bd.items.filter(x => !x.att || !ids.has(String(x.att))), cats = [];
+      top.forEach(x => { if (!cats.includes(x.cat)) cats.push(x.cat); });
+      cats.forEach(c => { L.push({ h:c.toUpperCase() }); top.filter(x => x.cat === c).forEach(h => { L.push(line(h, 0));
+        this.bd.items.filter(a => a !== h && String(a.att) === String(h.uid)).forEach(a => L.push(line(a, 1))); }); });
+      return L;
+    },
+    bdRule() { return this.gameSystem === '40k' ? this.bdSizes[this.bd.size] || this.bdSizes.strike : null; },
+    bdLimit() { const r = this.bdRule(); return r ? r.pts : this.bd.limit; },
+    bdDetList() { this.cxDeps(); return ((WAHA.db && WAHA.db.det) || []).filter(d => d.f === this.bd.f).sort((a, b) => a.n.localeCompare(b.n, 'fr')); },
+    bdAddDet(id) { const d = this.bdDetList().find(x => String(x.id) === String(id)); if (d && !this.bd.dets.some(x => x.id === d.id)) { this.bd.dets.push({ id:d.id, n:d.n, dp:[1,2,3].includes(+d.dp) ? +d.dp : 1 }); this.bdSave(); } },
+    bdDelDet(x) { this.bd.dets = this.bd.dets.filter(y => y !== x); this.bdSave(); },
+    bdEnhAll() { const out = []; this.bd.dets.forEach(c => { const d = this.bdDetList().find(x => x.id === c.id); const X = d && (d.x || { en:d.en }); ((X && X.en) || []).forEach(r => out.push({ key:c.id + '|' + r.n, n:r.n, c:+r.c || 0, det:c.n })); }); return out; },
+    bdEnhOf(it) { return it.en ? this.bdEnhAll().find(e => e.key === it.en) : null; },
+    bdTotal() { return this.bd.items.reduce((a, x) => { const e = this.bdEnhOf(x); return a + (+x.pts || 0) + (e ? e.c : 0); }, 0); },
+    bdIssues() {
+      const R = this.bdRule(), out = [], tot = this.bdTotal(), lim = this.bdLimit();
+      if (tot > lim) out.push({ e:1, m:'Dépassement de ' + (tot - lim) + ' pts (' + tot + ' / ' + lim + ').' });
+      if (!R) return out;
+      const cnt = {}; this.bd.items.forEach(x => { (cnt[x.id] = cnt[x.id] || { n:x.n, cat:x.cat, c:0 }).c++; });
+      Object.values(cnt).forEach(u => { const m = u.cat === 'Epic Hero' ? 1 : (['Battleline','Dedicated Transports'].includes(u.cat) ? R.ul * 2 : R.ul);
+        if (u.c > m) out.push({ e:1, m:u.n + ' : ' + u.c + ' exemplaires, maximum ' + m + '.' }); });
+      const per = {}; this.bd.items.forEach(x => { if (x.att) per[x.att] = (per[x.att] || 0) + 1; });
+      this.bd.items.forEach(h => { const k = per[h.uid] || 0; if (k > 2) out.push({ e:1, m:h.n + ' : ' + k + ' personnages rattachés (maximum 2 : un Leader et un Support).' }); else if (k === 2) out.push({ e:0, m:h.n + ' : 2 personnages rattachés, il faut un Leader et un Support (non distinguables dans les CSV).' }); });
+      const dp = this.bd.dets.reduce((a, d) => a + (+d.dp || 0), 0);
+      if (dp > R.dp) out.push({ e:1, m:'Points de détachement : ' + dp + ' / ' + R.dp + '.' });
+      if (this.bd.f && !this.bd.dets.length) out.push({ e:0, m:'Aucun détachement choisi.' });
+      const en = this.bd.items.filter(x => x.en), seen = {};
+      if (en.length > R.en) out.push({ e:1, m:'Améliorations : ' + en.length + ' / ' + R.en + ' (les copies supplémentaires d\'une même Upgrade ne comptent pas : à ajuster à la main).' });
+      en.forEach(x => { const e = this.bdEnhOf(x);
+        if (!e) out.push({ e:1, m:x.n + ' : amélioration d\'un détachement retiré.' });
+        if (x.cat === 'Epic Hero') out.push({ e:1, m:x.n + ' : un Epic Hero ne peut recevoir d\'amélioration.' });
+        else if (x.cat !== 'Characters') out.push({ e:0, m:x.n + ' : amélioration sur une unité non-Personnage (valable seulement pour une Upgrade).' });
+        if (seen[x.en]) out.push({ e:0, m:(e ? e.n : 'Amélioration') + ' prise plusieurs fois (valable seulement pour une Upgrade).' }); seen[x.en] = 1; });
+      return out;
+    },
+    bdTitle() { const R = this.bdRule(); return (this.bd.name || 'Liste') + ' — ' + this.bd.f + ' (' + this.bdTotal() + ' pts)' + (R ? ' · ' + R.l : ''); },
+    bdText() {
+      const L = [this.bdTitle(), ''];
+      if (this.bd.dets.length) L.push('Détachement(s) : ' + this.bd.dets.map(d => d.n).join(' + '), '');
+      this.bdLines().forEach(l => { if (l.h) { if (L[L.length - 1] !== '') L.push(''); L.push(l.h); } else L.push((l.i ? '  + ' : '') + l.n + ' (' + l.p + ' pts)' + (l.e ? ' — ' + l.e : '')); });
+      return L.join('\n').trim();
+    },
+    bdFile(ext) { return (this.bd.name || 'liste').replace(/[^\w\-]+/g, '_').slice(0, 40) + '.' + ext; },
+    bdTxt() { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([this.bdText()], { type:'text/plain;charset=utf-8' })); a.download = this.bdFile('txt'); a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); },
+    bdPdf() {
+      const { jsPDF } = window.jspdf, pdf = new jsPDF({ unit:'mm', format:'a4' }); let y = 20;
+      const nl = h => { if (y + h > 285) { pdf.addPage(); y = 20; } };
+      pdf.setFont('helvetica', 'bold'); pdf.setFontSize(15); pdf.text(this.bdTitle(), 15, y); y += 7;
+      if (this.bd.dets.length) { pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.text('Détachement(s) : ' + this.bd.dets.map(d => d.n).join(' + '), 15, y); y += 6; }
+      this.bdLines().forEach(l => {
+        if (l.h) { nl(12); y += 3; pdf.setFont('helvetica', 'bold'); pdf.setFontSize(10); pdf.text(l.h, 15, y); pdf.setDrawColor(150); pdf.line(15, y + 1.5, 195, y + 1.5); y += 6; return; }
+        nl(6); pdf.setFont('helvetica', 'normal'); pdf.setFontSize(10);
+        pdf.text((l.i ? '+ ' : '') + l.n + (l.e ? '  [' + l.e + ']' : ''), 15 + l.i * 8, y); pdf.text(l.p + ' pts', 195, y, { align:'right' }); y += 5.5;
+      });
+      pdf.save(this.bdFile('pdf'));
+    },
+    // --- Bibliothèque de listes (dossiers) ---
+    bdLibLoad() { try { const o = JSON.parse(localStorage.getItem('warroom_bd_lib') || 'null'); if (o) this.bdLib = { lists:o.lists || [], folders:o.folders || [] }; } catch (e) {} },
+    bdLibSave() { try { localStorage.setItem('warroom_bd_lib', JSON.stringify(this.bdLib)); } catch (e) { this.bdLibMsg = 'Stockage navigateur plein.'; } },
+    bdFlash(m) { this.bdLibMsg = m; setTimeout(() => { if (this.bdLibMsg === m) this.bdLibMsg = ''; }, 2500); },
+    // --- Synchro Firestore : un document « roster_<id> » par liste dans warroom_data + « roster-folders » pour les dossiers ---
+    bdUser() { return (this.user && this.user.username) || ''; },
+    bdFromDoc(d) { try { return { id:d.id, name:d.name || 'Liste', system:d.system, faction:d.faction || '', pts:d.pts || 0, folder:d.folder || '', date:d.date || '', by:d.by || '', data:JSON.parse(d.json), cl:1 }; } catch (e) { return null; } },
+    bdCloudPush(l) {
+      const col = CLOUDDATA.col(); if (!col) return;
+      col.doc('roster_' + l.id).set({ id:l.id, name:l.name, system:l.system, faction:l.faction, pts:l.pts, folder:l.folder || '', date:l.date, by:l.by || this.bdUser(), json:JSON.stringify(l.data) })
+        .then(() => { l.cl = 1; this.bdLibSave(); })
+        .catch(e => { console.warn('Firestore : liste', e); this.bdFlash('⚠ Firestore : enregistrement impossible (vérifier les règles)'); });
+    },
+    bdFoldersPush() { const col = CLOUDDATA.col(); if (col) col.doc('roster-folders').set({ names:this.bdLib.folders }).catch(e => console.warn('Firestore : dossiers', e)); },
+    bdCloudStart() {
+      try {
+        const col = CLOUDDATA.col(); if (!col || this._bdUnsub) return;
+        const FP = firebase.firestore.FieldPath.documentId();
+        let first = true;
+        this._bdUnsub = col.where(FP, '>=', 'roster_').where(FP, '<', 'roster_\uf8ff').onSnapshot(snap => {
+          if (first && snap.metadata.fromCache) return;     // instantané partiel hors ligne : on attend le serveur
+          const remote = snap.docs.map(d => this.bdFromDoc(d.data())).filter(Boolean), rid = new Set(remote.map(x => x.id));
+          const pending = this.bdLib.lists.filter(l => !l.cl && !rid.has(l.id));   // créées en local, pas encore envoyées
+          if (first) { first = false; pending.forEach(l => this.bdCloudPush(l)); }
+          this.bdLib.lists = remote.concat(pending); this.bdLibSave();   // une liste synchronisée puis absente du cloud a été supprimée ailleurs
+          if (this.bd.libId && !this.bdLib.lists.some(l => l.id === this.bd.libId)) this.bd.libId = '';
+        }, e => { console.warn('Firestore : listes', e); this.bdFlash('⚠ Listes : Firestore inaccessible (règles ?)'); });
+        col.doc('roster-folders').onSnapshot(d => { if (d.exists) { this.bdLib.folders = d.data().names || []; this.bdLibSave(); } }, e => console.warn('Firestore : dossiers', e));
+      } catch (e) { console.warn(e); }
+    },
+    bdSaveList() {
+      const data = JSON.parse(JSON.stringify(this.bd)), L = this.bdLib.lists, ex = L.find(x => x.id === this.bd.libId);
+      const meta = { name:this.bd.name || 'Liste sans nom', system:this.gameSystem, faction:this.bd.f, pts:this.bdTotal(), date:new Date().toISOString(), data };
+      let l = ex;
+      if (ex) Object.assign(ex, meta); else { this.bd.libId = 'l' + Date.now().toString(36); data.libId = this.bd.libId; l = Object.assign({ id:this.bd.libId, folder:'', by:this.bdUser() }, meta); L.push(l); }
+      this.bdSave(); this.bdLibSave(); this.bdCloudPush(l); this.bdFlash(ex ? '✓ Liste mise à jour' : '✓ Liste enregistrée');
+    },
+    bdNew() { this.bd = { f:this.bd.f, q:'', name:'', limit:2000, size:this.bd.size, dets:[], items:[], libId:'' }; this.bdSave(); },
+    bdOpenList(id) { const l = this.bdLib.lists.find(x => x.id === id); if (!l) return; this.gameSystem = l.system; this.$nextTick(() => { this.bd = Object.assign({}, JSON.parse(JSON.stringify(l.data)), { libId:id }); this.bdSave(); this.bdLibOpen = false; }); },
+    bdMoveList(id, f) { const l = this.bdLib.lists.find(x => x.id === id); if (l) { l.folder = f; this.bdLibSave(); this.bdCloudPush(l); } },
+    bdDupList(id) { const l = this.bdLib.lists.find(x => x.id === id); if (!l) return; const c = JSON.parse(JSON.stringify(l)); c.id = 'l' + Date.now().toString(36); c.name += ' (copie)'; c.data.name = c.name; c.data.libId = c.id; c.cl = 0; c.by = this.bdUser(); this.bdLib.lists.push(c); this.bdLibSave(); this.bdCloudPush(c); },
+    bdDelList(id) {
+      const l = this.bdLib.lists.find(x => x.id === id); if (!l || !confirm('Supprimer « ' + l.name + ' » ?')) return;
+      this.bdLib.lists = this.bdLib.lists.filter(x => x.id !== id); if (this.bd.libId === id) this.bd.libId = ''; this.bdLibSave();
+      const col = CLOUDDATA.col(); if (col) col.doc('roster_' + id).delete().catch(e => console.warn('Firestore : suppression', e));
+    },
+    bdAddFolder() { const n = (prompt('Nom du dossier') || '').trim(); if (n && !this.bdFolderNames().includes(n)) { this.bdLib.folders.push(n); this.bdLibSave(); this.bdFoldersPush(); } },
+    bdRenFolder(f) {
+      const n = (prompt('Renommer le dossier', f) || '').trim(); if (!n || n === f || this.bdFolderNames().includes(n)) return;
+      this.bdLib.folders = this.bdFolderNames().map(x => x === f ? n : x); this.bdFoldersPush();
+      this.bdLib.lists.forEach(l => { if (l.folder === f) { l.folder = n; this.bdCloudPush(l); } }); this.bdLibSave();
+    },
+    bdDelFolder(f) {
+      if (!confirm('Supprimer le dossier « ' + f + ' » ? Les listes qu\'il contient sont conservées, hors dossier.')) return;
+      this.bdLib.folders = this.bdFolderNames().filter(x => x !== f); this.bdFoldersPush();
+      this.bdLib.lists.forEach(l => { if (l.folder === f) { l.folder = ''; this.bdCloudPush(l); } }); this.bdLibSave();
+    },
+    bdFolderNames() { return [...new Set(this.bdLib.folders.concat(this.bdLib.lists.map(l => l.folder).filter(Boolean)))].sort((a, b) => a.localeCompare(b, 'fr')); },
+    bdLibGroups() { const g = [{ name:'', items:[] }].concat(this.bdFolderNames().map(n => ({ name:n, items:[] }))); this.bdLib.lists.forEach(l => { (g.find(x => x.name === l.folder) || g[0]).items.push(l); }); return g.filter(x => x.name || x.items.length); },
+    bdCopy() { const t = this.bdText(); (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).catch(() => { const a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select(); try { document.execCommand('copy'); } catch (e) {} a.remove(); }); this.bdCopied = true; setTimeout(() => this.bdCopied = false, 1500); },
+    bdToAnalyse() { this.rawList = this.bdText(); this.mode = 'analyse'; },
     cxInSys(id) { return id === this.gameSystem || String(id).startsWith(this.gameSystem + ':'); },
     cxNodes() { this.cxDeps(); return CODEX.visible(this.cxOpen).filter(n => this.cxInSys(n.id)); },
     cxFind() { this.cxDeps(); return CODEX.search(this.cxQ, this.cxTxt).filter(h => this.cxInSys(h.n.id)); },
@@ -3018,13 +3348,14 @@ function warRoomApp() {
 
     init() {
       this.gameSystem = localStorage.getItem('warroom_game') || '40k';
+      this.bdLoad(); this.bdLibLoad();
       this.dataPackRaw = localStorage.getItem('warroom_datapack') || '';
       this.loadHistory();
       this.startCloudSync();
       this.aosPackRaw = localStorage.getItem('warroom_aos_pack') || '';
       AOS.load().then(db => { if (db && db.ws) { AOS.setDB(db); this.aStatus = '✓ ' + AOS.info(db) + ' chargés'; } }).catch(() => {});
       WAHA.load().then(db => { if (db && db.units) { WAHA.setDB(db); this.wStatus = '✓ ' + WAHA.info(db) + ' chargées'; } }).catch(() => {});
-      this.$watch('gameSystem', v => { localStorage.setItem('warroom_game', v); this.duelRes = null; this.cxSel = null; this.cxQ = ''; });
+      this.$watch('gameSystem', v => { localStorage.setItem('warroom_game', v); this.duelRes = null; this.cxSel = null; this.cxQ = ''; this.bdLoad(); });
       this.mode = ({ duel:'duel', codex:'codex' })[localStorage.getItem('warroom_mode')] || 'analyse';
       this.$watch('mode', v => { if (v === 'duel' && this.user && !this.canDuel()) { this.mode = 'analyse'; return; } localStorage.setItem('warroom_mode', v); });
       this.$watch('user', () => { if (this.mode === 'duel' && this.user && !this.canDuel()) this.mode = 'analyse'; });
@@ -3888,6 +4219,7 @@ const regles = RULES.analyze(this.gameSystem, this.rawList, units, cats, dx, fac
       try {
         if (!CLOUD.init()) { this.cloudStatus = '☁ SDK Firebase indisponible (mode local)'; return; }
         this.cloudStatus = '☁ Connexion…';
+        this.bdCloudStart();
         let first = true;
         CLOUD.flushPending(); // rejoue les suppressions qui n'avaient pas pu aboutir
         const listen = () => {
