@@ -140,7 +140,7 @@
           <button @click="mode='codex'"
             class="flex-1 py-2.5 rounded-lg border font-orbitron text-xs tracking-wide transition"
             :class="mode==='codex' ? 'bg-neon-green/10 border-neon-green text-neon-green' : 'border-void-700 text-slate-500 hover:border-slate-500'">
-            📚 CODEX
+            📚 RULES
             <div class="text-[10px] font-mono opacity-70 mt-0.5">règles · fiches · warscrolls</div>
           </button>
         </div>
@@ -150,7 +150,7 @@
     <!-- ===================== CODEX (navigation dans les données) ===================== -->
     <section x-show="mode==='codex'" x-cloak class="bg-void-900 border border-void-700 rounded-xl p-4 space-y-3">
       <div class="flex flex-wrap items-center gap-3">
-        <h2 class="font-orbitron text-xs tracking-widest text-neon-green">📚 CODEX — RÈGLES, FICHES &amp; WARSCROLLS</h2>
+        <h2 class="font-orbitron text-xs tracking-widest text-neon-green">📚 RULES — <span x-text="gameSystem==='40k' ? 'WARHAMMER 40,000' : 'AGE OF SIGMAR'"></span></h2>
         <div class="flex-1 min-w-[220px] relative">
           <input x-model.debounce.200ms="cxQ" type="search" placeholder="Rechercher une unité, un détachement, une règle, un stratagème…"
             class="w-full bg-void-850 border border-void-700 rounded-lg px-3 py-2 text-sm font-mono text-slate-200 focus:border-neon-green/60">
@@ -2759,16 +2759,28 @@ function warRoomApp() {
     mode: 'analyse',
     cxOpen: { '40k':true, 'aos':true }, cxSel: null, cxQ: '', cxTxt: false,
     cxDeps() { return this.wStatus + '|' + this.aStatus; },
-    cxNodes() { this.cxDeps(); return CODEX.visible(this.cxOpen); },
-    cxFind() { this.cxDeps(); return CODEX.search(this.cxQ, this.cxTxt); },
+    cxInSys(id) { return id === this.gameSystem || String(id).startsWith(this.gameSystem + ':'); },
+    cxNodes() { this.cxDeps(); return CODEX.visible(this.cxOpen).filter(n => this.cxInSys(n.id)); },
+    cxFind() { this.cxDeps(); return CODEX.search(this.cxQ, this.cxTxt).filter(h => this.cxInSys(h.n.id)); },
+    // Une seule faction dépliée à la fois : on referme les sous-menus des autres factions
+    cxCollapseOthers(id) {
+      const fac = CODEX.path(id).find(x => x.k === 'fac'); if (!fac) return;
+      Object.keys(this.cxOpen).forEach(k => {
+        if (!this.cxOpen[k] || k === '40k' || k === 'aos') return;
+        const nd = CODEX.node(k); if (!nd) return;
+        const f = CODEX.path(k).find(x => x.k === 'fac');
+        if (f && f.id !== fac.id) this.cxOpen[k] = false;
+      });
+    },
     cxClick(n) {
+      this.cxCollapseOthers(n.id);
       if (n.c.length) this.cxOpen[n.id] = this.cxSel === n.id ? !this.cxOpen[n.id] : true;
       if (n.k !== 'empty') this.cxSel = n.id;
     },
-    cxGo(id) { CODEX.path(id).forEach(n => { if (n.id !== id || CODEX.node(id).c.length) this.cxOpen[n.id] = true; }); this.cxSel = id; this.cxQ = '';
+    cxGo(id) { this.cxCollapseOthers(id); CODEX.path(id).forEach(n => { if (n.id !== id || CODEX.node(id).c.length) this.cxOpen[n.id] = true; }); this.cxSel = id; this.cxQ = '';
       this.$nextTick(() => { const el = document.querySelector('[data-cx="' + CSS.escape(id) + '"]'); if (el) el.scrollIntoView({ block:'nearest' }); }); },
     cxCur() {
-      this.cxDeps(); const n = this.cxSel && CODEX.node(this.cxSel); if (!n) return [];
+      this.cxDeps(); const n = this.cxSel && CODEX.node(this.cxSel); if (!n || !this.cxInSys(n.id)) return [];
       const v = n.k === 'unit40' ? CODEX.v40(n.r) : n.k === 'unitAos' ? CODEX.vAos(n.r) : null;
       return [{ id:n.id, k:n.k, l:n.l, r:n.r, c:n.c, v, crumb:CODEX.path(n.id) }];
     },
@@ -3012,7 +3024,7 @@ function warRoomApp() {
       this.aosPackRaw = localStorage.getItem('warroom_aos_pack') || '';
       AOS.load().then(db => { if (db && db.ws) { AOS.setDB(db); this.aStatus = '✓ ' + AOS.info(db) + ' chargés'; } }).catch(() => {});
       WAHA.load().then(db => { if (db && db.units) { WAHA.setDB(db); this.wStatus = '✓ ' + WAHA.info(db) + ' chargées'; } }).catch(() => {});
-      this.$watch('gameSystem', v => { localStorage.setItem('warroom_game', v); this.duelRes = null; });
+      this.$watch('gameSystem', v => { localStorage.setItem('warroom_game', v); this.duelRes = null; this.cxSel = null; this.cxQ = ''; });
       this.mode = ({ duel:'duel', codex:'codex' })[localStorage.getItem('warroom_mode')] || 'analyse';
       this.$watch('mode', v => { if (v === 'duel' && this.user && !this.canDuel()) { this.mode = 'analyse'; return; } localStorage.setItem('warroom_mode', v); });
       this.$watch('user', () => { if (this.mode === 'duel' && this.user && !this.canDuel()) this.mode = 'analyse'; });
