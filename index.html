@@ -2491,7 +2491,7 @@ const CODEX = (() => {
       const fs = new Set([...w.units.map(u => u.f), ...(w.det || []).map(d => d.f), ...Object.keys(w.facab || {}), ...Object.keys(w.fst || {})].filter(Boolean));
       srt([...fs], x => x).forEach((f, i) => {
         const fn = add('40k:f' + i, f, 'fac', f, s40);
-        grp(fn, 'ar', "Règles d'armée", (w.facab || {})[f], (r, j, g) => add(g.id + ':' + j, r.n, 'rule', { n:r.n, d:r.dx || r.d, ctx:"Règle d'armée · " + f }, g));
+        grp(fn, 'ar', "Règles d'armée", (w.facab || {})[f], (r, j, g) => add(g.id + ':' + j, r.n, 'rule', { n:r.n, d:r.dx || (String(r.d || '').length >= 899 ? r.d + ' … ⚠ Texte tronqué (base importée avant la correction) : réimportez les CSV Wahapedia pour obtenir le texte complet.' : r.d), ctx:"Règle d'armée · " + f }, g));
         grp(fn, 'dt', 'Détachements', srt((w.det || []).filter(d => d.f === f), d => d.n), (d, j, g) => {
           const dn = add('40k:d' + d.id, d.n, 'det', d, g), X = d.x || { st:d.st, ab:d.ab, en:d.en };
           grp(dn, 'ab', 'Règles du détachement', X.ab, (r, k, sg) => add(sg.id + ':' + k, r.n, 'rule', { n:r.n, d:r.d, lg:r.lg, ctx:'Règle de détachement · ' + d.n }, sg));
