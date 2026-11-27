@@ -1827,7 +1827,7 @@ const WAHA = (() => {
     const T = n => parseCSV(F[n]);
     const fac = {}, ab = {}, U = {}, wg = {}, FA = {};
     T('factions.csv').forEach(r => fac[r.id] = r.name);
-    T('abilities.csv').forEach(r => ab[r.id] = { n:r.name, d:strip(r.description) });
+    T('abilities.csv').forEach(r => ab[r.id] = { n:r.name, d:strip(r.description), x:txt(r.description) });
     T('datasheets.csv').forEach(r => { if (r.virtual !== 'true') U[r.id] = { id:r.id, n:r.name, nl:norm(r.name), f:fac[r.faction_id]||'', role:r.role||'', mod:[], wp:[], kw:[], ab:[], abx:[], fnp:0, cost:[], leads:[] }; });
     T('datasheets_models.csv').forEach(r => { const u = U[r.datasheet_id]; if (u) u.mod.push({ T:num(r.T), Sv:r.Sv, inv:r.inv_sv, W:num(r.W)||1, OC:num(r.OC), M:num(r.M) }); });
     T('datasheets_wargear.csv').forEach(r => {          // 1 seul profil (le premier) par ligne d'arme
@@ -1844,7 +1844,7 @@ const WAHA = (() => {
       const a = r.ability_id && ab[r.ability_id], n = (a ? a.n : r.name) || '';
       const dsc = ((a && a.d) || strip(r.description) || '').slice(0, 900);
       u.ab.push(norm(n));
-      if (/faction/i.test(r.type || '')) { if (u.f && n) { const L = FA[u.f] = FA[u.f] || []; if (!L.some(x => x.n === n)) L.push({ n, d:dsc }); } }
+      if (/faction/i.test(r.type || '')) { if (u.f && n) { const L = FA[u.f] = FA[u.f] || []; if (!L.some(x => x.n === n)) L.push({ n, d:dsc, dx:(a && a.x) || txt(r.description) || dsc }); } }
       else if (n && !u.abx.some(x => x.n === n)) u.abx.push({ n, d:dsc });
       const m = (n+' '+(r.parameter||'')).match(/feel no pain\s*(\d)\+/i); if (m) u.fnp = Math.max(u.fnp, +m[1]);
     });
@@ -2491,7 +2491,7 @@ const CODEX = (() => {
       const fs = new Set([...w.units.map(u => u.f), ...(w.det || []).map(d => d.f), ...Object.keys(w.facab || {}), ...Object.keys(w.fst || {})].filter(Boolean));
       srt([...fs], x => x).forEach((f, i) => {
         const fn = add('40k:f' + i, f, 'fac', f, s40);
-        grp(fn, 'ar', "Règles d'armée", (w.facab || {})[f], (r, j, g) => add(g.id + ':' + j, r.n, 'rule', { n:r.n, d:r.d, ctx:"Règle d'armée · " + f }, g));
+        grp(fn, 'ar', "Règles d'armée", (w.facab || {})[f], (r, j, g) => add(g.id + ':' + j, r.n, 'rule', { n:r.n, d:r.dx || r.d, ctx:"Règle d'armée · " + f }, g));
         grp(fn, 'dt', 'Détachements', srt((w.det || []).filter(d => d.f === f), d => d.n), (d, j, g) => {
           const dn = add('40k:d' + d.id, d.n, 'det', d, g), X = d.x || { st:d.st, ab:d.ab, en:d.en };
           grp(dn, 'ab', 'Règles du détachement', X.ab, (r, k, sg) => add(sg.id + ':' + k, r.n, 'rule', { n:r.n, d:r.d, lg:r.lg, ctx:'Règle de détachement · ' + d.n }, sg));
