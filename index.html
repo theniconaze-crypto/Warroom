@@ -137,24 +137,26 @@
             <span x-text="canDuel() ? '⚔ DUEL' : '🔒 DUEL'"></span>
             <div class="text-[10px] font-mono opacity-70 mt-0.5" x-text="canDuel() ? 'deux listes · MU −3 / +3' : 'accès non activé'"></div>
           </button>
-          <button @click="mode='codex'"
-            class="flex-1 py-2.5 rounded-lg border font-orbitron text-xs tracking-wide transition"
-            :class="mode==='codex' ? 'bg-neon-green/10 border-neon-green text-neon-green' : 'border-void-700 text-slate-500 hover:border-slate-500'">
-            📚 RULES
-            <div class="text-[10px] font-mono opacity-70 mt-0.5">règles · fiches · warscrolls</div>
+          <button @click="if (canRules()) mode='codex'" :disabled="!canRules()"
+            class="flex-1 py-2.5 rounded-lg border font-orbitron text-xs tracking-wide transition disabled:opacity-40 disabled:cursor-not-allowed"
+            :class="mode==='codex' && canRules() ? 'bg-neon-green/10 border-neon-green text-neon-green' : 'border-void-700 text-slate-500 hover:border-slate-500'"
+            :title="canRules() ? '' : 'Accès au mode Rules non activé sur votre compte (contactez un administrateur)'">
+            <span x-text="canRules() ? '📚 RULES' : '🔒 RULES'"></span>
+            <div class="text-[10px] font-mono opacity-70 mt-0.5" x-text="canRules() ? 'règles · fiches · warscrolls' : 'accès non activé'"></div>
           </button>
-          <button @click="mode='builder'; bdLoad()"
-            class="flex-1 py-2.5 rounded-lg border font-orbitron text-xs tracking-wide transition"
-            :class="mode==='builder' ? 'bg-neon-cyan/10 border-neon-cyan text-neon-cyan' : 'border-void-700 text-slate-500 hover:border-slate-500'">
-            🛠 BUILDER
-            <div class="text-[10px] font-mono opacity-70 mt-0.5">composer une liste</div>
+          <button @click="if (canBuilder()) { mode='builder'; bdLoad(); }" :disabled="!canBuilder()"
+            class="flex-1 py-2.5 rounded-lg border font-orbitron text-xs tracking-wide transition disabled:opacity-40 disabled:cursor-not-allowed"
+            :class="mode==='builder' && canBuilder() ? 'bg-neon-cyan/10 border-neon-cyan text-neon-cyan' : 'border-void-700 text-slate-500 hover:border-slate-500'"
+            :title="canBuilder() ? '' : 'Accès au Builder non activé sur votre compte (contactez un administrateur)'">
+            <span x-text="canBuilder() ? '🛠 BUILDER' : '🔒 BUILDER'"></span>
+            <div class="text-[10px] font-mono opacity-70 mt-0.5" x-text="canBuilder() ? 'composer une liste' : 'accès non activé'"></div>
           </button>
         </div>
       </div>
     </section>
 
     <!-- ===================== CODEX (navigation dans les données) ===================== -->
-    <section x-show="mode==='codex'" x-cloak class="bg-void-900 border border-void-700 rounded-xl p-4 space-y-3">
+    <section x-show="mode==='codex' && canRules()" x-cloak class="bg-void-900 border border-void-700 rounded-xl p-4 space-y-3">
       <div class="flex flex-wrap items-center gap-3">
         <h2 class="font-orbitron text-xs tracking-widest text-neon-green">📚 RULES — <span x-text="gameSystem==='40k' ? 'WARHAMMER 40,000' : 'AGE OF SIGMAR'"></span></h2>
         <div class="flex-1 min-w-[220px] relative">
@@ -646,7 +648,7 @@
     </template>
 
     <!-- BUILDER -->
-    <section x-show="mode==='builder'" x-cloak class="bg-void-900 border border-void-700 rounded-xl p-5 space-y-4">
+    <section x-show="mode==='builder' && canBuilder()" x-cloak class="bg-void-900 border border-void-700 rounded-xl p-5 space-y-4">
       <div class="flex flex-wrap items-center gap-2">
         <h2 class="font-orbitron text-xs tracking-widest text-neon-cyan">🛠 BUILDER — <span x-text="gameSystem==='40k' ? 'WARHAMMER 40,000' : 'AGE OF SIGMAR'"></span></h2>
         <select x-model="bd.f" @change="bdSave()" class="bg-void-800 border border-void-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 max-w-full">
@@ -1268,6 +1270,12 @@
             <label class="flex items-center gap-1.5 text-xs font-mono text-slate-300 px-1" x-show="newRole !== 'admin'">
               <input type="checkbox" x-model="newCanDuel" class="accent-emerald-400"> Accès Duel
             </label>
+              <label class="flex items-center gap-1.5 text-xs font-mono text-slate-300 px-1" x-show="newRole !== 'admin'">
+              <input type="checkbox" x-model="newCanRules" class="accent-emerald-400"> Accès Rules
+            </label>
+              <label class="flex items-center gap-1.5 text-xs font-mono text-slate-300 px-1" x-show="newRole !== 'admin'">
+              <input type="checkbox" x-model="newCanBuilder" class="accent-emerald-400"> Accès Builder
+            </label>
             <button @click="createUser()" class="text-xs font-mono px-3 py-1.5 rounded-lg border border-neon-green/40 text-neon-green hover:bg-neon-green/10 transition">Créer</button>
           </div>
           <p class="text-[11px] font-mono text-slate-500" x-text="usersStatus"></p>
@@ -1309,6 +1317,14 @@
                     :class="u.canDuel ? 'border-neon-green/50 text-neon-green hover:bg-neon-green/10' : 'border-neon-red/50 text-neon-red hover:bg-neon-red/10'"
                     :title="u.canDuel ? 'Accès au mode Duel activé — cliquer pour retirer' : 'Accès au mode Duel non activé — cliquer pour autoriser'"
                     x-text="u.canDuel ? 'Duel : ON' : 'Duel : OFF'"></button>
+                  <button x-show="u.role !== 'admin'" @click="toggleCanRules(u)" class="px-2.5 py-1 rounded border transition whitespace-nowrap"
+                    :class="u.canRules ? 'border-neon-green/50 text-neon-green hover:bg-neon-green/10' : 'border-neon-red/50 text-neon-red hover:bg-neon-red/10'"
+                    :title="u.canRules ? 'Accès au mode Rules activé — cliquer pour retirer' : 'Accès au mode Rules non activé — cliquer pour autoriser'"
+                    x-text="u.canRules ? 'Rules : ON' : 'Rules : OFF'"></button>
+                  <button x-show="u.role !== 'admin'" @click="toggleCanBuilder(u)" class="px-2.5 py-1 rounded border transition whitespace-nowrap"
+                    :class="u.canBuilder ? 'border-neon-green/50 text-neon-green hover:bg-neon-green/10' : 'border-neon-red/50 text-neon-red hover:bg-neon-red/10'"
+                    :title="u.canBuilder ? 'Accès au Builder activé — cliquer pour retirer' : 'Accès au Builder non activé — cliquer pour autoriser'"
+                    x-text="u.canBuilder ? 'Builder : ON' : 'Builder : OFF'"></button>
                   <button @click="resetUserPwd(u)" class="px-2.5 py-1 rounded border border-void-700 text-slate-400 hover:border-neon-amber/50 hover:text-neon-amber whitespace-nowrap">Mot de passe</button>
                   <button @click="toggleRole(u)" class="px-2.5 py-1 rounded border border-void-700 text-slate-400 hover:border-neon-cyan/50 hover:text-neon-cyan whitespace-nowrap" x-text="u.role === 'admin' ? 'Rétrograder' : 'Promouvoir'"></button>
                   <button @click="deleteUser(u)" class="px-2.5 py-1 rounded border border-void-700 text-slate-400 hover:border-neon-red/50 hover:text-neon-red whitespace-nowrap">Supprimer</button>
@@ -3121,7 +3137,7 @@ function warRoomApp() {
     pollKey: '', pollModel: 'openai', pollUrl: 'https://gen.pollinations.ai/v1/chat/completions', pollStatus: '',
     forcedFaction: '',
     forcedChapter: '',
-    newCanAnalyze: true, newCanEdit: true, newCanDelete: true, newCanDuel: false, selfUnsub: null,
+    newCanAnalyze: true, newCanEdit: true, newCanDelete: true, newCanDuel: false, newCanRules: false, newCanBuilder: false, selfUnsub: null,
     currentHistoryId: null,
     refreshing: false, refreshStatus: '',
     syncState: 'checking', syncAt: '', syncBusy: false, syncTimer: null,
@@ -3169,6 +3185,9 @@ function warRoomApp() {
     // Modifier (renommer, ranger/déplacer, renommer un dossier) et supprimer (analyses, dossiers) : admin toujours, autres comptes sauf si false sur leur fiche
     // Duel : admin toujours ; autres comptes UNIQUEMENT si canDuel === true sur leur fiche (accès à activer dans la gestion utilisateur)
     canDuel() { return !!this.user && (this.user.role === 'admin' || this.user.canDuel === true); },
+    // Rules et Builder : comme Duel, admin toujours ; autres comptes uniquement si le champ vaut true sur leur fiche
+    canRules() { return !!this.user && (this.user.role === 'admin' || this.user.canRules === true); },
+    canBuilder() { return !!this.user && (this.user.role === 'admin' || this.user.canBuilder === true); },
     canEdit() { return !!this.user && (this.user.role === 'admin' || this.user.canEdit !== false); },
     canDelete() { return !!this.user && (this.user.role === 'admin' || this.user.canDelete !== false); },
     // Suit en direct la fiche du compte connecté (rôle / autorisation modifiés par un admin, ou compte supprimé)
@@ -3182,7 +3201,7 @@ function warRoomApp() {
         if (!doc.exists) { this.logout(); return; }
         const d = doc.data();
         if (d.active === false) { this.logout(); this.loginError = 'Compte désactivé.'; return; }
-        this.user = { username: name, role: d.role || 'user', canAnalyze: d.canAnalyze !== false, canEdit: d.canEdit !== false, canDelete: d.canDelete !== false, canDuel: d.canDuel === true };
+        this.user = { username: name, role: d.role || 'user', canAnalyze: d.canAnalyze !== false, canEdit: d.canEdit !== false, canDelete: d.canDelete !== false, canDuel: d.canDuel === true, canRules: d.canRules === true, canBuilder: d.canBuilder === true };
         localStorage.setItem('warroom_user', JSON.stringify(this.user));
         if (this.isAdmin()) this.watchUsers();
       }, err => console.warn('Firestore compte :', err));
@@ -3199,7 +3218,7 @@ function warRoomApp() {
           const doc = await col.doc(name).get();
           if (!name || !doc.exists || doc.data().passwordHash !== await sha256(name + ':' + this.loginPwd)) throw new Error('Identifiants incorrects.');
           if (doc.data().active === false) throw new Error('Compte désactivé. Contactez un administrateur.');
-          this.user = { username: name, role: doc.data().role || 'user', canAnalyze: doc.data().canAnalyze !== false, canEdit: doc.data().canEdit !== false, canDelete: doc.data().canDelete !== false, canDuel: doc.data().canDuel === true };
+          this.user = { username: name, role: doc.data().role || 'user', canAnalyze: doc.data().canAnalyze !== false, canEdit: doc.data().canEdit !== false, canDelete: doc.data().canDelete !== false, canDuel: doc.data().canDuel === true, canRules: doc.data().canRules === true, canBuilder: doc.data().canBuilder === true };
         }
         localStorage.setItem('warroom_user', JSON.stringify(this.user));
         this.loginPwd = ''; this.loginUser = '';
@@ -3223,7 +3242,7 @@ function warRoomApp() {
         const col = USERS.col(); if (!col) { this.user = u; return; }
         const doc = await col.doc(u.username).get();
         if (!doc.exists || doc.data().active === false) { localStorage.removeItem('warroom_user'); return; } // compte supprimé ou désactivé
-        this.user = { username: u.username, role: doc.data().role || 'user', canAnalyze: doc.data().canAnalyze !== false, canEdit: doc.data().canEdit !== false, canDelete: doc.data().canDelete !== false, canDuel: doc.data().canDuel === true };
+        this.user = { username: u.username, role: doc.data().role || 'user', canAnalyze: doc.data().canAnalyze !== false, canEdit: doc.data().canEdit !== false, canDelete: doc.data().canDelete !== false, canDuel: doc.data().canDuel === true, canRules: doc.data().canRules === true, canBuilder: doc.data().canBuilder === true };
         localStorage.setItem('warroom_user', JSON.stringify(this.user));
         if (this.isAdmin()) this.watchUsers();
         this.watchSelf();
@@ -3233,7 +3252,7 @@ function warRoomApp() {
     watchUsers() {
       const col = USERS.col(); if (!col || this.usersUnsub) return;
       this.usersUnsub = col.onSnapshot(snap => {
-        this.users = snap.docs.map(d => ({ username: d.id, role: d.data().role || 'user', canAnalyze: d.data().canAnalyze !== false, canEdit: d.data().canEdit !== false, canDelete: d.data().canDelete !== false, canDuel: d.data().canDuel === true, active: d.data().active !== false, lastLoginAt: d.data().lastLoginAt || '' })).sort((a, b) => a.username.localeCompare(b.username));
+        this.users = snap.docs.map(d => ({ username: d.id, role: d.data().role || 'user', canAnalyze: d.data().canAnalyze !== false, canEdit: d.data().canEdit !== false, canDelete: d.data().canDelete !== false, canDuel: d.data().canDuel === true, canRules: d.data().canRules === true, canBuilder: d.data().canBuilder === true, active: d.data().active !== false, lastLoginAt: d.data().lastLoginAt || '' })).sort((a, b) => a.username.localeCompare(b.username));
       }, err => { console.warn(err); this.usersStatus = '✗ Lecture des comptes impossible (règles Firestore ?)'; });
     },
     async createUser() {
@@ -3244,8 +3263,8 @@ function warRoomApp() {
       try {
         const col = USERS.col();
         if ((await col.doc(name).get()).exists) { this.usersStatus = '✗ Ce compte existe déjà'; return; }
-        await col.doc(name).set({ role: this.newRole, canAnalyze: !!this.newCanAnalyze, canEdit: !!this.newCanEdit, canDelete: !!this.newCanDelete, canDuel: !!this.newCanDuel, active: true, passwordHash: await sha256(name + ':' + this.newPwd), createdAt: new Date().toISOString() });
-        this.usersStatus = '✓ Compte « ' + name + ' » créé'; this.newUser = ''; this.newPwd = ''; this.newRole = 'user'; this.newCanAnalyze = true; this.newCanEdit = true; this.newCanDelete = true; this.newCanDuel = false;
+        await col.doc(name).set({ role: this.newRole, canAnalyze: !!this.newCanAnalyze, canEdit: !!this.newCanEdit, canDelete: !!this.newCanDelete, canDuel: !!this.newCanDuel, canRules: !!this.newCanRules, canBuilder: !!this.newCanBuilder, active: true, passwordHash: await sha256(name + ':' + this.newPwd), createdAt: new Date().toISOString() });
+        this.usersStatus = '✓ Compte « ' + name + ' » créé'; this.newUser = ''; this.newPwd = ''; this.newRole = 'user'; this.newCanAnalyze = true; this.newCanEdit = true; this.newCanDelete = true; this.newCanDuel = false; this.newCanRules = false; this.newCanBuilder = false;
       } catch (e) { this.usersStatus = '✗ ' + (e.message || e); }
     },
     async resetUserPwd(u) {
@@ -3270,6 +3289,14 @@ function warRoomApp() {
     },
     async toggleCanEdit(u) {
       try { await USERS.col().doc(u.username).update({ canEdit: u.canEdit === false }); }
+      catch (e) { this.usersStatus = '✗ ' + (e.message || e); }
+    },
+    async toggleCanRules(u) {
+      try { await USERS.col().doc(u.username).update({ canRules: u.canRules !== true }); }
+      catch (e) { this.usersStatus = '✗ ' + (e.message || e); }
+    },
+    async toggleCanBuilder(u) {
+      try { await USERS.col().doc(u.username).update({ canBuilder: u.canBuilder !== true }); }
       catch (e) { this.usersStatus = '✗ ' + (e.message || e); }
     },
     async toggleCanDuel(u) {
@@ -3357,8 +3384,8 @@ function warRoomApp() {
       WAHA.load().then(db => { if (db && db.units) { WAHA.setDB(db); this.wStatus = '✓ ' + WAHA.info(db) + ' chargées'; } }).catch(() => {});
       this.$watch('gameSystem', v => { localStorage.setItem('warroom_game', v); this.duelRes = null; this.cxSel = null; this.cxQ = ''; this.bdLoad(); });
       this.mode = ({ duel:'duel', codex:'codex' })[localStorage.getItem('warroom_mode')] || 'analyse';
-      this.$watch('mode', v => { if (v === 'duel' && this.user && !this.canDuel()) { this.mode = 'analyse'; return; } localStorage.setItem('warroom_mode', v); });
-      this.$watch('user', () => { if (this.mode === 'duel' && this.user && !this.canDuel()) this.mode = 'analyse'; });
+      this.$watch('mode', v => { if (this.user && ((v === 'duel' && !this.canDuel()) || (v === 'codex' && !this.canRules()) || (v === 'builder' && !this.canBuilder()))) { this.mode = 'analyse'; return; } localStorage.setItem('warroom_mode', v); });
+      this.$watch('user', () => { if (this.user && ((this.mode === 'duel' && !this.canDuel()) || (this.mode === 'codex' && !this.canRules()) || (this.mode === 'builder' && !this.canBuilder()))) this.mode = 'analyse'; });
       this.pollKey = localStorage.getItem('warroom_poll_key') || '';
       this.pollModel = localStorage.getItem('warroom_poll_model') || 'openai';
       this.pollUrl = localStorage.getItem('warroom_poll_url') || 'https://gen.pollinations.ai/v1/chat/completions';
